@@ -183,7 +183,6 @@ class Game:
                          f"{extraction} units and earns ${gain:.1f}.")
 
     def plant_robot(self, player):
-        # Find an asteroid on the player's tile that is not exhausted and has no robot.
         asteroid = next((a for a in self.asteroids
                          if a.x == player.x and a.y == player.y and not a.is_exhausted() and a.robot_owner is None),
                         None)
@@ -332,11 +331,8 @@ class LeaderboardGUI(tk.Toplevel):
         self.game = game
         tk.Label(self, text="Leaderboard", bg=DARK_BG, fg=DARK_FG, font=("Arial", 14, "bold")).pack(padx=10, pady=5)
 
-        # Compute rankings.
         players = self.game.players
-        # Top Money ranking.
         sorted_money = sorted(players, key=lambda p: p.money, reverse=True)
-        # Compute total upgrades for each player.
         s = self.game.settings
 
         def total_upgrades(p):
@@ -372,10 +368,9 @@ class GameGUI(tk.Tk):
         self.configure(bg=DARK_BG)
         self.game = game
         self.current_player_index = 0
-        # Flags for move mode and the selected tile.
         self.move_mode = False
         self.allowed_moves = set()
-        self.selected_tile = None  # (x,y) for tile info selection
+        self.selected_tile = None  # For tile info selection (when not in move mode)
         self.create_widgets()
         self.update_display()
 
@@ -395,17 +390,15 @@ class GameGUI(tk.Tk):
                 row_labels.append(lbl)
             self.cell_labels.append(row_labels)
 
-        # --- Right frame containing game log and tile info ---
+        # --- Right frame: Game Log and Tile Info ---
         self.right_frame = tk.Frame(self, bg=DARK_BG)
         self.right_frame.grid(row=0, column=1, padx=10, pady=10, sticky="n")
-        # Game Log
         log_container = tk.Frame(self.right_frame, bg=DARK_BG)
         log_container.pack()
         tk.Label(log_container, text="Game Log:", bg=DARK_BG, fg=DARK_FG).pack()
         self.log_text = tk.Text(log_container, width=40, height=15, state="disabled",
                                 bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
         self.log_text.pack()
-        # Tile Information display
         info_container = tk.Frame(self.right_frame, bg=DARK_BG)
         info_container.pack(pady=5)
         tk.Label(info_container, text="Tile Information:", bg=DARK_BG, fg=DARK_FG).pack()
@@ -415,13 +408,16 @@ class GameGUI(tk.Tk):
                                          bg=DARK_BG, fg=DARK_FG)
         self.point_info_label.pack()
 
-        # --- Controls ---
+        # --- Controls: Player Info and Current Tile Info ---
         self.control_frame = tk.Frame(self, bg=DARK_BG)
         self.control_frame.grid(row=1, column=0, columnspan=2, pady=10)
-        self.player_info_label = tk.Label(self.control_frame, text="", bg=DARK_BG, fg=DARK_FG, justify="left")
-        self.player_info_label.pack(pady=5)
+        info_columns = tk.Frame(self.control_frame, bg=DARK_BG)
+        info_columns.pack()
+        self.player_info_label = tk.Label(info_columns, text="", bg=DARK_BG, fg=DARK_FG, justify="left")
+        self.player_info_label.grid(row=0, column=0, padx=10)
+        self.current_tile_info_label = tk.Label(info_columns, text="", bg=DARK_BG, fg=DARK_FG, justify="left")
+        self.current_tile_info_label.grid(row=0, column=1, padx=10)
 
-        # Free action buttons
         free_actions_frame = tk.Frame(self.control_frame, bg=DARK_BG)
         free_actions_frame.pack(pady=5)
         tk.Button(free_actions_frame, text="Upgrade", command=self.open_upgrade_window,
@@ -431,13 +427,13 @@ class GameGUI(tk.Tk):
         tk.Button(free_actions_frame, text="Leaderboard", command=self.open_leaderboard_window,
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
 
-        # Main action buttons
         main_actions_frame = tk.Frame(self.control_frame, bg=DARK_BG)
         main_actions_frame.pack(pady=5)
         tk.Button(main_actions_frame, text="Move", command=self.move_player,
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
-        tk.Button(main_actions_frame, text="Mine", command=self.mine_action,
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+        self.mine_button = tk.Button(main_actions_frame, text="Mine", command=self.mine_action,
+                                     bg=BUTTON_BG, fg=BUTTON_FG)
+        self.mine_button.pack(side="left", padx=5)
         tk.Button(main_actions_frame, text="Pass", command=self.pass_action,
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
 
@@ -445,11 +441,29 @@ class GameGUI(tk.Tk):
         s = (f"Active Player:\n"
              f"Name: {player.name} ({player.symbol})\n"
              f"Money: ${player.money:.2f}\n"
-             f"Mining Capacity: {player.mining_capacity}\n"
-             f"Discovery Range: {player.discovery_range}\n"
-             f"Movement Range: {player.movement_range}\n"
+             f"Mining: {player.mining_capacity}\n"
+             f"Discovery: {player.discovery_range}\n"
+             f"Movement: {player.movement_range}\n"
              f"Position: ({player.x}, {player.y})")
         return s
+
+    def format_current_tile_info(self, player):
+        # Information about the tile where the active player stands.
+        x, y = player.x, player.y
+        info = f"Tile ({x},{y}):\n"
+        # Other players (excluding the active player)
+        others = [p for p in self.game.players if p.x == x and p.y == y and p != player]
+        if others:
+            info += "Other Players:\n" + "\n".join(str(p) for p in others) + "\n"
+        # Asteroid info (if any)
+        asteroid = next((a for a in self.game.asteroids if a.x == x and a.y == y), None)
+        if asteroid:
+            info += f"Asteroid {asteroid.id}: {asteroid.resource:.1f} resources, Value {asteroid.value:.2f}"
+            if asteroid.robot_owner:
+                info += f" (Robot by {asteroid.robot_owner.symbol})"
+        else:
+            info += "No asteroid on this tile."
+        return info
 
     def log(self, message):
         self.log_text.config(state="normal")
@@ -458,16 +472,13 @@ class GameGUI(tk.Tk):
         self.log_text.config(state="disabled")
 
     def update_display(self):
-        # Update discovered tiles
         self.game.update_discovered()
         active = self.get_current_player()
         for y in range(self.game.grid_height):
             for x in range(self.game.grid_width):
-                # Default text if not discovered.
                 if (x, y) not in self.game.discovered_tiles:
                     text = "??"
                 else:
-                    # Show players if present; else show asteroid if present; else dot.
                     cell_players = [p for p in self.game.players if p.x == x and p.y == y]
                     if cell_players:
                         text = "/".join([p.symbol for p in cell_players])
@@ -475,12 +486,6 @@ class GameGUI(tk.Tk):
                         asteroid_here = next((a for a in self.game.asteroids if a.x == x and a.y == y), None)
                         text = f"A{asteroid_here.id}" if asteroid_here else "."
 
-                # Determine background color with priority:
-                # 1. Active player's cell (green)
-                # 2. Selected tile (purple)
-                # 3. Allowed move cell (when in move mode)
-                # 4. Field-of-view cell (subtle highlight)
-                # 5. Otherwise default.
                 if (x, y) == (active.x, active.y):
                     bg_color = ACTIVE_PLAYER_TILE_COLOR
                 elif self.selected_tile == (x, y):
@@ -493,11 +498,14 @@ class GameGUI(tk.Tk):
                 else:
                     bg_color = DARK_BG
                 self.cell_labels[y][x].config(text=text, bg=bg_color)
-        # Update current player info
         self.player_info_label.config(text=self.format_player_info(active))
+        self.current_tile_info_label.config(text=self.format_current_tile_info(active))
+        # Update Mine button: disable if no mineable asteroid on active tile.
+        mineable = any(a for a in self.game.asteroids
+                       if a.x == active.x and a.y == active.y and not a.is_exhausted())
+        self.mine_button.config(state="normal" if mineable else "disabled")
 
     def on_grid_click(self, x, y):
-        # If in move mode, clicking an allowed tile executes the move.
         if self.move_mode:
             if (x, y) in self.allowed_moves:
                 active = self.get_current_player()
@@ -512,7 +520,6 @@ class GameGUI(tk.Tk):
             else:
                 self.log("Tile not allowed for movement.")
             return
-        # Otherwise, set the clicked tile as the selected tile for tile information.
         self.selected_tile = (x, y)
         info = f"Tile ({x},{y}):\n"
         if (x, y) not in self.game.discovered_tiles:
@@ -524,7 +531,7 @@ class GameGUI(tk.Tk):
                 info += "Players:\n" + "\n".join(str(p) for p in players_here) + "\n"
             if asteroids_here:
                 for a in asteroids_here:
-                    info += f"Asteroid {a.id}: Resource {a.resource:.1f}, Value {a.value:.2f}"
+                    info += f"Asteroid {a.id}: {a.resource:.1f} resources, Value {a.value:.2f}"
                     if a.robot_owner:
                         info += f" (Robot by {a.robot_owner.symbol})"
                     info += "\n"
@@ -540,7 +547,6 @@ class GameGUI(tk.Tk):
         active = self.get_current_player()
         self.move_mode = True
         self.allowed_moves = set()
-        # Allowed moves: any tile (except current) within movement range.
         for x in range(self.game.grid_width):
             for y in range(self.game.grid_height):
                 if (x, y) != (active.x, active.y) and manhattan_distance(active.x, active.y, x,
@@ -567,25 +573,22 @@ class GameGUI(tk.Tk):
         self.after(500, self.next_turn)
 
     def next_turn(self):
-        # Process automatic robot mining at turn's end.
         self.game.robot_mining(self.log)
         self.log(f"--- End of Turn {self.game.turn} ---")
         if self.game.is_game_over():
             self.log("All asteroids have been exhausted. Game over!")
             self.disable_controls()
             return
-        # Advance to next player.
         self.current_player_index = (self.current_player_index + 1) % len(self.game.players)
         if self.current_player_index == 0:
             self.game.turn += 1
-        self.selected_tile = None  # Clear any selected tile.
+        self.selected_tile = None
         self.update_display()
 
     def disable_controls(self):
         for child in self.control_frame.winfo_children():
             child.config(state="disabled")
 
-    # --- Command methods for free actions ---
     def open_upgrade_window(self):
         active = self.get_current_player()
         UpgradeGUI(self, self.game, active)
