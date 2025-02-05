@@ -96,9 +96,38 @@ class GameGUI(tk.Tk):
         self.update_display()
 
     def create_widgets(self):
-        # Game Board (Grid)
+        # ----------------------------
+        # Top UI Panel: UI Panel buttons and Time Remaining
+        # ----------------------------
+        self.top_ui_frame = tk.Frame(self, bg=DARK_BG)
+        self.top_ui_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+
+        # Create a container inside top_ui_frame to hold both the UI buttons and the timer label
+        ui_and_timer_frame = tk.Frame(self.top_ui_frame, bg=DARK_BG)
+        ui_and_timer_frame.pack(fill="x")
+
+        # UI Panel buttons (Leaderboard and Asteroid Stats) in a labeled frame on the left
+        ui_panel_frame = tk.LabelFrame(ui_and_timer_frame, text="UI Panels", bg=DARK_BG, fg=DARK_FG)
+        ui_panel_frame.pack(side="left", fill="x", expand=True)
+        tk.Button(ui_panel_frame, text="Leaderboard",
+                  command=lambda: [self.cancel_pending_actions(), self.open_leaderboard_window()],
+                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+        tk.Button(ui_panel_frame, text="Asteroid Stats",
+                  command=lambda: [self.cancel_pending_actions(), self.open_asteroid_graph_window()],
+                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+
+        # Timer label on the right, with the same font size as the money label
+        self.timer_label = tk.Label(ui_and_timer_frame,
+                                    text=f"{self.turn_timer_remaining}",
+                                    bg=DARK_BG, fg=DARK_FG,
+                                    font=("Arial", 30, "bold"))
+        self.timer_label.pack(side="right", padx=10)
+
+        # ----------------------------
+        # Game Board (Grid) and Right Panel for Log and Tile Info
+        # ----------------------------
         self.grid_frame = tk.Frame(self, bg=DARK_BG)
-        self.grid_frame.grid(row=0, column=0, padx=10, pady=10)
+        self.grid_frame.grid(row=1, column=0, padx=10, pady=10)
         self.cell_labels = []
         for y in range(self.game.grid_height):
             row_labels = []
@@ -110,14 +139,14 @@ class GameGUI(tk.Tk):
                 lbl.bind("<Button-1>", lambda e, x=x, y=y: self.on_grid_click(x, y))
                 row_labels.append(lbl)
             self.cell_labels.append(row_labels)
-        # Right Panel for Log and Tile Info
+
         self.right_frame = tk.Frame(self, bg=DARK_BG)
-        self.right_frame.grid(row=0, column=1, padx=10, pady=10, sticky="n")
+        self.right_frame.grid(row=1, column=1, padx=10, pady=10, sticky="n")
         log_container = tk.Frame(self.right_frame, bg=DARK_BG)
         log_container.pack()
         tk.Label(log_container, text="Game Log:", bg=DARK_BG, fg=DARK_FG).pack()
         self.log_text = tk.Text(log_container, width=40, height=15, state="disabled",
-                                 bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
+                                bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
         self.log_text.pack()
         info_container = tk.Frame(self.right_frame, bg=DARK_BG)
         info_container.pack(pady=5)
@@ -127,55 +156,58 @@ class GameGUI(tk.Tk):
                                          borderwidth=1, relief="solid",
                                          bg=DARK_BG, fg=DARK_FG)
         self.point_info_label.pack()
-        # Control Panels: Three Rows
-        self.control_frame = tk.Frame(self, bg=DARK_BG)
-        self.control_frame.grid(row=1, column=0, columnspan=2, pady=10)
-        # --- UI Panels Row ---
-        ui_panel_frame = tk.LabelFrame(self.control_frame, text="UI Panels", bg=DARK_BG, fg=DARK_FG)
-        ui_panel_frame.pack(fill="x", pady=5)
-        tk.Button(ui_panel_frame, text="Leaderboard",
-                  command=lambda: [self.cancel_pending_actions(), self.open_leaderboard_window()],
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
-        tk.Button(ui_panel_frame, text="Asteroid Stats",
-                  command=lambda: [self.cancel_pending_actions(), self.open_asteroid_graph_window()],
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+
+        # ----------------------------
+        # Bottom Frame: Left money display and right action panels
+        # ----------------------------
+        self.bottom_frame = tk.Frame(self, bg=DARK_BG)
+        self.bottom_frame.grid(row=2, column=0, columnspan=2, pady=10, sticky="ew")
+        # Left: Big money display (showing current player’s money)
+        self.money_label = tk.Label(self.bottom_frame, text="", bg=DARK_BG, fg=DARK_FG,
+                                    font=("Arial", 24, "bold"))
+        self.money_label.grid(row=0, column=0, rowspan=2, padx=10, sticky="n")
+        # Right: Action panels (Instant and Turn Actions)
+        self.actions_frame = tk.Frame(self.bottom_frame, bg=DARK_BG)
+        self.actions_frame.grid(row=0, column=1, sticky="ew")
+
         # --- Instant Actions Row ---
-        instant_actions_frame = tk.LabelFrame(self.control_frame, text="Instant Actions", bg=DARK_BG, fg=DARK_FG)
-        instant_actions_frame.pack(fill="x", pady=5)
-        self.upgrade_general_button = tk.Button(instant_actions_frame, text="Upgrade (General)",
+        self.instant_actions_frame = tk.LabelFrame(self.actions_frame, text="Instant Actions", bg=DARK_BG, fg=DARK_FG)
+        self.instant_actions_frame.pack(fill="x", pady=5)
+        self.upgrade_general_button = tk.Button(self.instant_actions_frame, text="Upgrade (General)",
                                                 command=lambda: [self.cancel_pending_actions(),
                                                                  self.open_upgrade_window()],
                                                 bg=BUTTON_BG, fg=BUTTON_FG)
         self.upgrade_general_button.pack(side="left", padx=5)
         # Plant Robot button is conditional – start disabled and hidden.
-        self.plant_robot_button = tk.Button(instant_actions_frame, text="Plant Robot ($100)",
+        self.plant_robot_button = tk.Button(self.instant_actions_frame, text="Plant Robot ($100)",
                                             command=lambda: [self.cancel_pending_actions(), self.remote_plant_robot()],
                                             bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.plant_robot_button.pack(side="left", padx=5)
         self.plant_robot_button.pack_opts = {"side": "left", "padx": 5}
-        # Immediately hide the button if disabled.
         if self.plant_robot_button["state"] == "disabled":
             self.plant_robot_button.pack_forget()
-        self.pause_timer_button = tk.Button(instant_actions_frame, text="Pause Timer", command=self.toggle_timer,
+        self.pause_timer_button = tk.Button(self.instant_actions_frame, text="Pause Timer", command=self.toggle_timer,
                                             bg=BUTTON_BG, fg=BUTTON_FG)
         self.pause_timer_button.pack(side="left", padx=5)
+
         # --- Turn Actions Row ---
-        turn_actions_frame = tk.LabelFrame(self.control_frame, text="Turn Actions", bg=DARK_BG, fg=DARK_FG)
-        turn_actions_frame.pack(fill="x", pady=5)
-        tk.Button(turn_actions_frame, text="Move", command=self.move_player,
+        self.turn_actions_frame = tk.LabelFrame(self.actions_frame, text="Turn Actions", bg=DARK_BG, fg=DARK_FG)
+        self.turn_actions_frame.pack(fill="x", pady=5)
+        tk.Button(self.turn_actions_frame, text="Move", command=self.move_player,
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
         # Mine button is conditional – start disabled and hidden.
-        self.mine_button = tk.Button(turn_actions_frame, text="Mine",
+        self.mine_button = tk.Button(self.turn_actions_frame, text="Mine",
                                      command=lambda: [self.cancel_pending_actions(), self.mine_action()],
                                      bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.mine_button.pack(side="left", padx=5)
         self.mine_button.pack_opts = {"side": "left", "padx": 5}
         if self.mine_button["state"] == "disabled":
             self.mine_button.pack_forget()
-        tk.Button(turn_actions_frame, text="Pass", command=lambda: [self.cancel_pending_actions(), self.pass_action()],
+        tk.Button(self.turn_actions_frame, text="Pass",
+                  command=lambda: [self.cancel_pending_actions(), self.pass_action()],
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
         # Debris button is conditional – start disabled and hidden.
-        self.debris_button = tk.Button(turn_actions_frame, text="Deploy Debris Torpedo ($200)",
+        self.debris_button = tk.Button(self.turn_actions_frame, text="Deploy Debris Torpedo ($200)",
                                        command=lambda: [self.cancel_pending_actions(), self.deploy_debris_torpedo()],
                                        bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.debris_button.pack(side="left", padx=5)
@@ -183,24 +215,27 @@ class GameGUI(tk.Tk):
         if self.debris_button["state"] == "disabled":
             self.debris_button.pack_forget()
         # Hijack Robot button is conditional – start disabled and hidden.
-        self.hijack_robot_button = tk.Button(turn_actions_frame, text="Hijack Robot",
+        self.hijack_robot_button = tk.Button(self.turn_actions_frame, text="Hijack Robot",
                                              command=lambda: [self.cancel_pending_actions(), self.hijack_robot()],
                                              bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.hijack_robot_button.pack(side="left", padx=5)
         self.hijack_robot_button.pack_opts = {"side": "left", "padx": 5}
         if self.hijack_robot_button["state"] == "disabled":
             self.hijack_robot_button.pack_forget()
-        self.timer_label = tk.Label(turn_actions_frame, text=f"Time remaining: {self.turn_timer_remaining}", bg=DARK_BG,
-                                    fg=DARK_FG)
-        self.timer_label.pack(side="left", padx=10)
-        # Player and Tile Info
-        info_columns = tk.Frame(self.control_frame, bg=DARK_BG)
-        info_columns.pack()
-        self.player_info_label = tk.Label(info_columns, text="", bg=DARK_BG, font=("Arial", 10, "bold"), justify="left")
+        # (Note: The timer label has been moved to the top UI panel, so it's removed from here.)
+
+        # ----------------------------
+        # Info Columns (Player and Tile Info) placed below the action panels
+        # ----------------------------
+        self.info_frame = tk.Frame(self, bg=DARK_BG)
+        self.info_frame.grid(row=3, column=0, columnspan=2)
+        self.player_info_label = tk.Label(self.info_frame, text="", bg=DARK_BG, font=("Arial", 10, "bold"),
+                                          justify="left")
         self.player_info_label.grid(row=0, column=0, padx=10)
-        self.current_tile_info_label = tk.Label(info_columns, text="", bg=DARK_BG, fg=DARK_FG, font=("Arial", 10),
+        self.current_tile_info_label = tk.Label(self.info_frame, text="", bg=DARK_BG, fg=DARK_FG, font=("Arial", 10),
                                                 justify="left")
         self.current_tile_info_label.grid(row=0, column=1, padx=10)
+
 
     def update_button_visibility(self, button):
         """Show the button (using its stored pack options) if enabled; otherwise hide it."""
@@ -250,6 +285,8 @@ class GameGUI(tk.Tk):
     def update_display(self):
         self.game.update_discovered()
         active = self.get_current_player()
+        # Update the big money label.
+        self.money_label.config(text=f"${active.money:.0f}")
         # Movement: update allowed moves if in move_mode.
         if self.move_mode:
             reachable = self.get_reachable_cells((active.x, active.y), active.movement_range)
@@ -350,7 +387,7 @@ class GameGUI(tk.Tk):
                 self.selected_tile = None
                 self.reset_timer()
                 self.update_display()
-                self.after(500, self.next_turn)
+                self.after(50, self.next_turn)
             else:
                 self.log("Tile not allowed for movement.")
             return
@@ -463,14 +500,14 @@ class GameGUI(tk.Tk):
             self.log(result)
         self.update_display()
         self.reset_timer()
-        self.after(500, self.next_turn)
+        self.after(50, self.next_turn)
 
     def pass_action(self):
         self.cancel_pending_actions()
         self.log(f"{self.get_current_player().symbol} passes.")
         self.update_display()
         self.reset_timer()
-        self.after(500, self.next_turn)
+        self.after(50, self.next_turn)
 
     def remote_plant_robot(self):
         """Initiate remote planting (i.e. planting a robot) by highlighting valid asteroid tiles."""
@@ -498,7 +535,7 @@ class GameGUI(tk.Tk):
         self.log(result)
         self.update_display()
         if hijack_flag:
-            self.after(500, self.next_turn)
+            self.after(50, self.next_turn)
 
     def deploy_debris_torpedo(self):
         active = self.get_current_player()
@@ -541,7 +578,7 @@ class GameGUI(tk.Tk):
             self.allowed_debris_cells = set()
             self.reset_timer()
             self.update_display()
-            self.after(500, self.next_turn)
+            self.after(50, self.next_turn)
 
     def open_asteroid_graph_window(self):
         self.cancel_pending_actions()
@@ -586,17 +623,17 @@ class GameGUI(tk.Tk):
         self.update_display()
 
     def disable_controls(self):
-        for child in self.control_frame.winfo_children():
+        for child in self.bottom_frame.winfo_children():
             child.config(state="disabled")
 
     def reset_timer(self):
         self.turn_timer_remaining = self.game.settings.turn_timer_duration
-        self.timer_label.config(text=f"Time remaining: {self.turn_timer_remaining}")
+        self.timer_label.config(text=f"{self.turn_timer_remaining}")
 
     def update_timer(self):
         if not self.timer_paused:
             self.turn_timer_remaining -= 1
-        self.timer_label.config(text=f"Time remaining: {self.turn_timer_remaining}")
+        self.timer_label.config(text=f"{self.turn_timer_remaining}")
         if self.turn_timer_remaining <= 0:
             self.pass_action()
             self.reset_timer()
