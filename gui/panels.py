@@ -59,7 +59,6 @@ class UpgradeGUI(tk.Toplevel):
             self.master.update_display()
         else:
             self.master.log("No upgrade selected.")
-        self.on_close()
 
     def on_close(self):
         self.destroy()

@@ -25,6 +25,7 @@ class GameGUI(tk.Tk):
         self.timer_paused = False
         self.turn_timer_remaining = self.game.settings.turn_timer_duration
         self.create_widgets()
+        # Immediately update display so that buttons are shown/hidden appropriately.
         self.update_display()
         self.update_timer()
 
@@ -146,11 +147,15 @@ class GameGUI(tk.Tk):
                                                                  self.open_upgrade_window()],
                                                 bg=BUTTON_BG, fg=BUTTON_FG)
         self.upgrade_general_button.pack(side="left", padx=5)
-        # REMOTE planting is now the only planting action (costs $100)
+        # Plant Robot button is conditional – start disabled and hidden.
         self.plant_robot_button = tk.Button(instant_actions_frame, text="Plant Robot ($100)",
                                             command=lambda: [self.cancel_pending_actions(), self.remote_plant_robot()],
-                                            bg=BUTTON_BG, fg=BUTTON_FG)
+                                            bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.plant_robot_button.pack(side="left", padx=5)
+        self.plant_robot_button.pack_opts = {"side": "left", "padx": 5}
+        # Immediately hide the button if disabled.
+        if self.plant_robot_button["state"] == "disabled":
+            self.plant_robot_button.pack_forget()
         self.pause_timer_button = tk.Button(instant_actions_frame, text="Pause Timer", command=self.toggle_timer,
                                             bg=BUTTON_BG, fg=BUTTON_FG)
         self.pause_timer_button.pack(side="left", padx=5)
@@ -159,21 +164,32 @@ class GameGUI(tk.Tk):
         turn_actions_frame.pack(fill="x", pady=5)
         tk.Button(turn_actions_frame, text="Move", command=self.move_player,
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+        # Mine button is conditional – start disabled and hidden.
         self.mine_button = tk.Button(turn_actions_frame, text="Mine",
                                      command=lambda: [self.cancel_pending_actions(), self.mine_action()],
-                                     bg=BUTTON_BG, fg=BUTTON_FG)
+                                     bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.mine_button.pack(side="left", padx=5)
+        self.mine_button.pack_opts = {"side": "left", "padx": 5}
+        if self.mine_button["state"] == "disabled":
+            self.mine_button.pack_forget()
         tk.Button(turn_actions_frame, text="Pass", command=lambda: [self.cancel_pending_actions(), self.pass_action()],
                   bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+        # Debris button is conditional – start disabled and hidden.
         self.debris_button = tk.Button(turn_actions_frame, text="Deploy Debris Torpedo ($200)",
                                        command=lambda: [self.cancel_pending_actions(), self.deploy_debris_torpedo()],
-                                       bg=BUTTON_BG, fg=BUTTON_FG)
+                                       bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.debris_button.pack(side="left", padx=5)
-        # New Hijack action (turn action)
+        self.debris_button.pack_opts = {"side": "left", "padx": 5}
+        if self.debris_button["state"] == "disabled":
+            self.debris_button.pack_forget()
+        # Hijack Robot button is conditional – start disabled and hidden.
         self.hijack_robot_button = tk.Button(turn_actions_frame, text="Hijack Robot",
                                              command=lambda: [self.cancel_pending_actions(), self.hijack_robot()],
-                                             bg=BUTTON_BG, fg=BUTTON_FG)
+                                             bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
         self.hijack_robot_button.pack(side="left", padx=5)
+        self.hijack_robot_button.pack_opts = {"side": "left", "padx": 5}
+        if self.hijack_robot_button["state"] == "disabled":
+            self.hijack_robot_button.pack_forget()
         self.timer_label = tk.Label(turn_actions_frame, text=f"Time remaining: {self.turn_timer_remaining}", bg=DARK_BG,
                                     fg=DARK_FG)
         self.timer_label.pack(side="left", padx=10)
@@ -185,6 +201,15 @@ class GameGUI(tk.Tk):
         self.current_tile_info_label = tk.Label(info_columns, text="", bg=DARK_BG, fg=DARK_FG, font=("Arial", 10),
                                                 justify="left")
         self.current_tile_info_label.grid(row=0, column=1, padx=10)
+
+    def update_button_visibility(self, button):
+        """Show the button (using its stored pack options) if enabled; otherwise hide it."""
+        if button["state"] == "normal":
+            if not button.winfo_ismapped():
+                button.pack(**button.pack_opts)
+        else:
+            if button.winfo_ismapped():
+                button.pack_forget()
 
     def format_player_info(self, player):
         return (f"{player.symbol}\n"
@@ -272,11 +297,30 @@ class GameGUI(tk.Tk):
             self.hijack_robot_button.config(state="normal")
         else:
             self.hijack_robot_button.config(state="disabled")
-        self.debris_button.config(state="normal" if active.money >= 200 else "disabled")
+        # Check for allowed debris deployment cells:
+        allowed_debris = set()
+        reachable = self.get_reachable_cells((active.x, active.y), active.robot_range+3)
+        for cell in reachable:
+            # Skip if an asteroid is on that cell:
+            if any(a for a in self.game.asteroids if a.x == cell[0] and a.y == cell[1]):
+                continue
+            valid, region = self.can_deploy_debris(cell)
+            if valid:
+                allowed_debris.add(cell)
+        if allowed_debris and active.money >= 200:
+            self.debris_button.config(state="normal")
+        else:
+            self.debris_button.config(state="disabled")
         if self.leaderboard_window is not None:
             self.leaderboard_window.update_content()
         if self.asteroid_stats_window is not None:
             self.asteroid_stats_window.update_content()
+
+        # Update conditional buttons’ visibility so that only enabled buttons are shown.
+        self.update_button_visibility(self.plant_robot_button)
+        self.update_button_visibility(self.mine_button)
+        self.update_button_visibility(self.debris_button)
+        self.update_button_visibility(self.hijack_robot_button)
 
     def on_grid_click(self, x, y):
         if self.debris_mode:
@@ -462,7 +506,7 @@ class GameGUI(tk.Tk):
             self.log("Not enough money for debris torpedo.")
             return
         if not self.debris_mode:
-            reachable = self.get_reachable_cells((active.x, active.y), active.robot_range)
+            reachable = self.get_reachable_cells((active.x, active.y), active.robot_range+3)
             allowed = set()
             for cell in reachable:
                 if any(a for a in self.game.asteroids if a.x == cell[0] and a.y == cell[1]):
