@@ -219,9 +219,9 @@ class AsteroidGraphGUI(tk.Toplevel):
     def toggle_bar_chart(self):
         self.show_resource_bar = not self.show_resource_bar
         if self.show_resource_bar:
-            self.toggle_button.config(text="Show Total Value Bar")
+            self.toggle_button.config(text="Show Total Value")
         else:
-            self.toggle_button.config(text="Show Resource Bar")
+            self.toggle_button.config(text="Show Resource")
         self.update_content()
 
     def update_content(self):
@@ -234,7 +234,7 @@ class AsteroidGraphGUI(tk.Toplevel):
         # Define new headers including a Total Value column.
         # Headers: Asteroid, Loc, Res, Price, Tot. Val, Players, Robot (Cap), and Bar chart.
         headers = ["Asteroid", "Loc", "Res", "Price", "Tot. Val", "Players", "Robot (Cap)",
-                   "Res Bar" if self.show_resource_bar else "Val Bar"]
+                   "Resource" if self.show_resource_bar else "Value"]
         # Choose column positions (adjust as needed).
         col_positions = [10, 70, 120, 170, 230, 290, 380, 480]
 

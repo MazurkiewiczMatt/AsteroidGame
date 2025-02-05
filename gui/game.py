@@ -5,6 +5,38 @@ from game import Game
 from .panels import UpgradeGUI, LeaderboardGUI, AsteroidGraphGUI
 from constants import *  # This includes helper functions (e.g. manhattan_distance) and color constants
 
+# ===========================
+# UI Constants
+# ===========================
+
+# Padding values
+UI_PADDING_SMALL = 5      # e.g. for internal widget padding
+UI_PADDING_MEDIUM = 10    # e.g. for outer frame padding
+UI_PADDING_GRID_CELL = 1  # for grid cell spacing
+
+# Font settings
+FONT_FAMILY = "Arial"
+FONT_TIMER = (FONT_FAMILY, 30, "bold")
+FONT_MONEY = (FONT_FAMILY, 24, "bold")
+FONT_PLAYER_INFO = (FONT_FAMILY, 10, "bold")
+FONT_TILE_INFO = (FONT_FAMILY, 10)
+
+# Grid cell dimensions
+GRID_CELL_WIDTH = 4
+GRID_CELL_HEIGHT = 2
+
+# Text widget dimensions
+TEXT_WIDGET_WIDTH = 40
+TEXT_WIDGET_HEIGHT = 15
+
+# Info label dimensions
+INFO_LABEL_WIDTH = 40
+INFO_LABEL_HEIGHT = 6
+
+# Timer delay (milliseconds)
+TIMER_DELAY_MS = 1000
+
+
 class GameGUI(tk.Tk):
     def __init__(self, game: Game):
         super().__init__()
@@ -100,7 +132,8 @@ class GameGUI(tk.Tk):
         # Top UI Panel: UI Panel buttons and Time Remaining
         # ----------------------------
         self.top_ui_frame = tk.Frame(self, bg=DARK_BG)
-        self.top_ui_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        self.top_ui_frame.grid(row=0, column=0, columnspan=2,
+                                 padx=UI_PADDING_MEDIUM, pady=UI_PADDING_SMALL, sticky="ew")
 
         # Create a container inside top_ui_frame to hold both the UI buttons and the timer label
         ui_and_timer_frame = tk.Frame(self.top_ui_frame, bg=DARK_BG)
@@ -111,131 +144,158 @@ class GameGUI(tk.Tk):
         ui_panel_frame.pack(side="left", fill="x", expand=True)
         tk.Button(ui_panel_frame, text="Leaderboard",
                   command=lambda: [self.cancel_pending_actions(), self.open_leaderboard_window()],
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=UI_PADDING_SMALL)
         tk.Button(ui_panel_frame, text="Asteroid Stats",
                   command=lambda: [self.cancel_pending_actions(), self.open_asteroid_graph_window()],
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
+                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=UI_PADDING_SMALL)
 
         # Timer label on the right, with the same font size as the money label
         self.timer_label = tk.Label(ui_and_timer_frame,
                                     text=f"{self.turn_timer_remaining}",
                                     bg=DARK_BG, fg=DARK_FG,
-                                    font=("Arial", 30, "bold"))
-        self.timer_label.pack(side="right", padx=10)
+                                    font=FONT_TIMER)
+        self.timer_label.pack(side="right", padx=UI_PADDING_MEDIUM)
 
         # ----------------------------
         # Game Board (Grid) and Right Panel for Log and Tile Info
         # ----------------------------
         self.grid_frame = tk.Frame(self, bg=DARK_BG)
-        self.grid_frame.grid(row=1, column=0, padx=10, pady=10)
+        self.grid_frame.grid(row=1, column=0,
+                             padx=UI_PADDING_MEDIUM, pady=UI_PADDING_MEDIUM)
         self.cell_labels = []
         for y in range(self.game.grid_height):
             row_labels = []
             for x in range(self.game.grid_width):
-                lbl = tk.Label(self.grid_frame, text="??", width=4, height=2,
+                lbl = tk.Label(self.grid_frame, text="??",
+                               width=GRID_CELL_WIDTH, height=GRID_CELL_HEIGHT,
                                borderwidth=1, relief="solid",
                                bg=UNDISCOVERED_BG, fg=DARK_FG)
-                lbl.grid(row=y, column=x, padx=1, pady=1)
+                lbl.grid(row=y, column=x, padx=UI_PADDING_GRID_CELL, pady=UI_PADDING_GRID_CELL)
                 lbl.bind("<Button-1>", lambda e, x=x, y=y: self.on_grid_click(x, y))
                 row_labels.append(lbl)
             self.cell_labels.append(row_labels)
 
         self.right_frame = tk.Frame(self, bg=DARK_BG)
-        self.right_frame.grid(row=1, column=1, padx=10, pady=10, sticky="n")
+        self.right_frame.grid(row=1, column=1,
+                              padx=UI_PADDING_MEDIUM, pady=UI_PADDING_MEDIUM, sticky="n")
         log_container = tk.Frame(self.right_frame, bg=DARK_BG)
         log_container.pack()
         tk.Label(log_container, text="Game Log:", bg=DARK_BG, fg=DARK_FG).pack()
-        self.log_text = tk.Text(log_container, width=40, height=15, state="disabled",
-                                bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
+        self.log_text = tk.Text(log_container,
+                                width=TEXT_WIDGET_WIDTH, height=TEXT_WIDGET_HEIGHT,
+                                state="disabled", bg=DARK_BG, fg=DARK_FG,
+                                insertbackground=DARK_FG)
         self.log_text.pack()
         info_container = tk.Frame(self.right_frame, bg=DARK_BG)
-        info_container.pack(pady=5)
+        info_container.pack(pady=UI_PADDING_SMALL)
         tk.Label(info_container, text="Tile Information:", bg=DARK_BG, fg=DARK_FG).pack()
-        self.point_info_label = tk.Label(info_container, text="Click a grid cell to see details.",
-                                         justify="left", anchor="w", width=40, height=6,
+        self.point_info_label = tk.Label(info_container,
+                                         text="Click a grid cell to see details.",
+                                         justify="left", anchor="w",
+                                         width=INFO_LABEL_WIDTH, height=INFO_LABEL_HEIGHT,
                                          borderwidth=1, relief="solid",
                                          bg=DARK_BG, fg=DARK_FG)
         self.point_info_label.pack()
 
         # ----------------------------
-        # Bottom Frame: Left money display and right action panels
+        # Bottom Frame: Four Columns
         # ----------------------------
         self.bottom_frame = tk.Frame(self, bg=DARK_BG)
-        self.bottom_frame.grid(row=2, column=0, columnspan=2, pady=10, sticky="ew")
-        # Left: Big money display (showing current player’s money)
-        self.money_label = tk.Label(self.bottom_frame, text="", bg=DARK_BG, fg=DARK_FG,
-                                    font=("Arial", 24, "bold"))
-        self.money_label.grid(row=0, column=0, rowspan=2, padx=10, sticky="n")
-        # Right: Action panels (Instant and Turn Actions)
-        self.actions_frame = tk.Frame(self.bottom_frame, bg=DARK_BG)
-        self.actions_frame.grid(row=0, column=1, sticky="ew")
+        self.bottom_frame.grid(row=2, column=0, columnspan=2,
+                               pady=UI_PADDING_MEDIUM, sticky="ew")
 
-        # --- Instant Actions Row ---
-        self.instant_actions_frame = tk.LabelFrame(self.actions_frame, text="Instant Actions", bg=DARK_BG, fg=DARK_FG)
-        self.instant_actions_frame.pack(fill="x", pady=5)
+        # ----------------------------
+        # Column 0: Money Label
+        # ----------------------------
+        self.money_label = tk.Label(self.bottom_frame, text="",
+                                    bg=DARK_BG, fg=DARK_FG,
+                                    font=FONT_MONEY)
+        self.money_label.grid(row=0, column=0, rowspan=2,
+                              padx=UI_PADDING_MEDIUM, sticky="n")
+
+        # ----------------------------
+        # Column 1: Actions Panel (Instant & Turn Actions)
+        # ----------------------------
+        self.actions_frame = tk.Frame(self.bottom_frame, bg=DARK_BG)
+        self.actions_frame.grid(row=0, column=1, padx=UI_PADDING_MEDIUM, sticky="n")
+
+        # Instant Actions (first row within actions_frame)
+        self.instant_actions_frame = tk.LabelFrame(self.actions_frame, text="Instant Actions",
+                                                   bg=DARK_BG, fg=DARK_FG)
+        self.instant_actions_frame.pack(fill="x", pady=UI_PADDING_SMALL)
         self.upgrade_general_button = tk.Button(self.instant_actions_frame, text="Upgrade (General)",
                                                 command=lambda: [self.cancel_pending_actions(),
                                                                  self.open_upgrade_window()],
                                                 bg=BUTTON_BG, fg=BUTTON_FG)
-        self.upgrade_general_button.pack(side="left", padx=5)
-        # Plant Robot button is conditional – start disabled and hidden.
+        self.upgrade_general_button.pack(side="left", padx=UI_PADDING_SMALL)
         self.plant_robot_button = tk.Button(self.instant_actions_frame, text="Plant Robot ($100)",
                                             command=lambda: [self.cancel_pending_actions(), self.remote_plant_robot()],
                                             bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
-        self.plant_robot_button.pack(side="left", padx=5)
-        self.plant_robot_button.pack_opts = {"side": "left", "padx": 5}
+        self.plant_robot_button.pack(side="left", padx=UI_PADDING_SMALL)
+        self.plant_robot_button.pack_opts = {"side": "left", "padx": UI_PADDING_SMALL}
         if self.plant_robot_button["state"] == "disabled":
             self.plant_robot_button.pack_forget()
         self.pause_timer_button = tk.Button(self.instant_actions_frame, text="Pause Timer", command=self.toggle_timer,
                                             bg=BUTTON_BG, fg=BUTTON_FG)
-        self.pause_timer_button.pack(side="left", padx=5)
+        self.pause_timer_button.pack(side="left", padx=UI_PADDING_SMALL)
 
-        # --- Turn Actions Row ---
-        self.turn_actions_frame = tk.LabelFrame(self.actions_frame, text="Turn Actions", bg=DARK_BG, fg=DARK_FG)
-        self.turn_actions_frame.pack(fill="x", pady=5)
+        # Turn Actions (second row within actions_frame)
+        self.turn_actions_frame = tk.LabelFrame(self.actions_frame, text="Turn Actions",
+                                                bg=DARK_BG, fg=DARK_FG)
+        self.turn_actions_frame.pack(fill="x", pady=UI_PADDING_SMALL)
         tk.Button(self.turn_actions_frame, text="Move", command=self.move_player,
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
-        # Mine button is conditional – start disabled and hidden.
+                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=UI_PADDING_SMALL)
         self.mine_button = tk.Button(self.turn_actions_frame, text="Mine",
                                      command=lambda: [self.cancel_pending_actions(), self.mine_action()],
                                      bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
-        self.mine_button.pack(side="left", padx=5)
-        self.mine_button.pack_opts = {"side": "left", "padx": 5}
+        self.mine_button.pack(side="left", padx=UI_PADDING_SMALL)
+        self.mine_button.pack_opts = {"side": "left", "padx": UI_PADDING_SMALL}
         if self.mine_button["state"] == "disabled":
             self.mine_button.pack_forget()
         tk.Button(self.turn_actions_frame, text="Pass",
                   command=lambda: [self.cancel_pending_actions(), self.pass_action()],
-                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=5)
-        # Debris button is conditional – start disabled and hidden.
+                  bg=BUTTON_BG, fg=BUTTON_FG).pack(side="left", padx=UI_PADDING_SMALL)
         self.debris_button = tk.Button(self.turn_actions_frame, text="Deploy Debris Torpedo ($200)",
                                        command=lambda: [self.cancel_pending_actions(), self.deploy_debris_torpedo()],
                                        bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
-        self.debris_button.pack(side="left", padx=5)
-        self.debris_button.pack_opts = {"side": "left", "padx": 5}
+        self.debris_button.pack(side="left", padx=UI_PADDING_SMALL)
+        self.debris_button.pack_opts = {"side": "left", "padx": UI_PADDING_SMALL}
         if self.debris_button["state"] == "disabled":
             self.debris_button.pack_forget()
-        # Hijack Robot button is conditional – start disabled and hidden.
         self.hijack_robot_button = tk.Button(self.turn_actions_frame, text="Hijack Robot",
                                              command=lambda: [self.cancel_pending_actions(), self.hijack_robot()],
                                              bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
-        self.hijack_robot_button.pack(side="left", padx=5)
-        self.hijack_robot_button.pack_opts = {"side": "left", "padx": 5}
+        self.hijack_robot_button.pack(side="left", padx=UI_PADDING_SMALL)
+        self.hijack_robot_button.pack_opts = {"side": "left", "padx": UI_PADDING_SMALL}
         if self.hijack_robot_button["state"] == "disabled":
             self.hijack_robot_button.pack_forget()
-        # (Note: The timer label has been moved to the top UI panel, so it's removed from here.)
 
         # ----------------------------
-        # Info Columns (Player and Tile Info) placed below the action panels
+        # Column 2: Player Info with Border
         # ----------------------------
-        self.info_frame = tk.Frame(self, bg=DARK_BG)
-        self.info_frame.grid(row=3, column=0, columnspan=2)
-        self.player_info_label = tk.Label(self.info_frame, text="", bg=DARK_BG, font=("Arial", 10, "bold"),
+        self.player_info_frame = tk.LabelFrame(self.bottom_frame, text="Player Info",
+                                               bg=DARK_BG, fg=DARK_FG)
+        self.player_info_frame.grid(row=0, column=2, padx=UI_PADDING_MEDIUM, sticky="n")
+        self.player_info_label = tk.Label(self.player_info_frame, text="",
+                                          bg=DARK_BG, font=FONT_PLAYER_INFO,
                                           justify="left")
-        self.player_info_label.grid(row=0, column=0, padx=10)
-        self.current_tile_info_label = tk.Label(self.info_frame, text="", bg=DARK_BG, fg=DARK_FG, font=("Arial", 10),
-                                                justify="left")
-        self.current_tile_info_label.grid(row=0, column=1, padx=10)
+        self.player_info_label.pack(padx=UI_PADDING_SMALL, pady=UI_PADDING_SMALL)
 
+        # ----------------------------
+        # Column 3: Current Tile Info with Border
+        # ----------------------------
+        self.tile_info_frame = tk.LabelFrame(self.bottom_frame, text="Tile Info",
+                                             bg=DARK_BG, fg=DARK_FG)
+        self.tile_info_frame.grid(row=0, column=3, padx=UI_PADDING_MEDIUM, sticky="n")
+        self.current_tile_info_label = tk.Label(self.tile_info_frame, text="",
+                                                bg=DARK_BG, fg=DARK_FG,
+                                                font=FONT_TILE_INFO, justify="left")
+        self.current_tile_info_label.pack(padx=UI_PADDING_SMALL, pady=UI_PADDING_SMALL)
+
+        # Optional: Configure grid columns to expand (if desired)
+        self.bottom_frame.grid_columnconfigure(1, weight=1)
+        self.bottom_frame.grid_columnconfigure(2, weight=1)
+        self.bottom_frame.grid_columnconfigure(3, weight=1)
 
     def update_button_visibility(self, button):
         """Show the button (using its stored pack options) if enabled; otherwise hide it."""
@@ -248,18 +308,11 @@ class GameGUI(tk.Tk):
 
     def format_player_info(self, player):
         return (f"{player.symbol}\n"
-                f"Economy:\n"
-                f"   Money: ${player.money:.0f}\n"
-                f"   Total Mined: {player.total_mined}\n"
-                f"Capabilities:\n"
                 f"   Mining Capacity: {player.mining_capacity}\n"
                 f"   Discovery Range: {player.discovery_range}\n"
                 f"   Movement Range: {player.movement_range}\n"
-                f"Robot:\n"
                 f"   Robot Range: {player.robot_range}\n"
-                f"   Robot Capacity: {player.robot_capacity}\n"
-                f"Upgrades:\n"
-                f"   Upgrades Purchased: {player.upgrades_purchased}")
+                f"   Robot Capacity: {player.robot_capacity}\n")
 
     def format_current_tile_info(self, player):
         x, y = player.x, player.y
@@ -639,7 +692,7 @@ class GameGUI(tk.Tk):
             self.reset_timer()
             self.update_timer()
         else:
-            self.after(1000, self.update_timer)
+            self.after(TIMER_DELAY_MS, self.update_timer)
 
     def toggle_timer(self):
         self.timer_paused = not self.timer_paused
