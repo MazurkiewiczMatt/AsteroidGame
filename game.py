@@ -1,13 +1,12 @@
 import random
 
 from settings import GameSettings
-from constants import *
+from constants import *  # Includes PLAYER_COLORS and helper functions such as manhattan_distance
 
 class Robot:
     def __init__(self, owner, capacity):
         self.owner = owner
-        self.capacity = capacity  # capacity frozen at deployment
-
+        self.capacity = capacity  # Capacity frozen at deployment
 
 class Asteroid:
     def __init__(self, id, x, y, resource, value):
@@ -31,7 +30,6 @@ class Asteroid:
             s += f", Robot by {self.robot.owner.symbol} (Cap: {self.robot.capacity})"
         return s
 
-
 class Player:
     next_id = 1
 
@@ -46,8 +44,8 @@ class Player:
         self.movement_range = settings.initial_movement_range
         self.robot_range = settings.initial_robot_range
         self.robot_capacity = settings.initial_robot_capacity
-        self.upgrades_purchased = 0  # count of upgrades purchased
-        self.total_mined = 0  # total mined resources
+        self.upgrades_purchased = 0  # Count of upgrades purchased
+        self.total_mined = 0  # Total mined resources
         self.x = x
         self.y = y
         # Initialize each player’s current upgrade costs:
@@ -59,7 +57,6 @@ class Player:
 
     def __str__(self):
         return f"{self.symbol}"
-
 
 class Game:
     def __init__(self, settings: GameSettings):
@@ -113,16 +110,14 @@ class Game:
             gain = extraction * asteroid.value
             player.money += gain
             player.total_mined += extraction
-            return (
-                f"{player.symbol} manually mines {extraction} from A{asteroid.id} and immediately receives ${gain:.1f}.")
+            return (f"{player.symbol} manually mines {extraction} from A{asteroid.id} and immediately receives ${gain:.1f}.")
         else:
             extraction = asteroid.resource
             gain = extraction * asteroid.value
             player.money += gain
             player.total_mined += extraction
             asteroid.resource = 0
-            return (
-                f"{player.symbol} manually mines {extraction} from A{asteroid.id} (all) and immediately receives ${gain:.1f}.")
+            return (f"{player.symbol} manually mines {extraction} from A{asteroid.id} (all) and immediately receives ${gain:.1f}.")
 
     def robot_mining(self, log_func):
         for a in self.asteroids:
@@ -132,29 +127,14 @@ class Game:
                 a.resource -= extraction
                 a.robot.owner.money += gain
                 a.robot.owner.total_mined += extraction
-                log_func(
-                    f"Robot on A{a.id} (owned by {a.robot.owner.symbol}, Cap: {a.robot.owner.robot_capacity}) extracts {extraction} and earns ${gain:.1f} at end of turn.")
-
-    def plant_robot(self, player):
-        # Local planting is only possible on the player's tile which is discovered.
-        asteroid = next((a for a in self.asteroids if a.x == player.x and a.y == player.y and not a.is_exhausted()),
-                        None)
-        if asteroid is None:
-            return ("No asteroid here for robot planting.", False)
-        if player.money < 100:
-            return ("Not enough money to plant robot.", False)
-        player.money -= 100
-        if asteroid.robot is None:
-            asteroid.robot = Robot(player, player.robot_capacity)
-            return (f"{player.symbol} plants a robot on A{asteroid.id} with capacity {player.robot_capacity}.", False)
-        elif asteroid.robot.owner != player:
-            asteroid.robot = Robot(player, player.robot_capacity)
-            return (f"{player.symbol} hijacks the robot on A{asteroid.id} with capacity {player.robot_capacity}.", True)
-        else:
-            return ("You already own the robot here.", False)
+                log_func(f"Robot on A{a.id} (owned by {a.robot.owner.symbol}, Cap: {a.robot.owner.robot_capacity}) extracts {extraction} and earns ${gain:.1f} at end of turn.")
 
     def remote_plant_robot(self, player, target):
-        # Remote planting is allowed only if the asteroid's tile has been discovered.
+        """
+        Plant a robot remotely.
+        Valid only if the target asteroid is discovered, not exhausted, and does not already have a robot.
+        Costs $100.
+        """
         if target is None:
             return ("No valid asteroid at that location.", False)
         if (target.x, target.y) not in self.discovered_tiles:
@@ -163,23 +143,38 @@ class Game:
             return ("Asteroid is exhausted.", False)
         if player.money < 100:
             return ("Not enough money to plant robot remotely.", False)
-        # Disallow hijacking remotely.
-        if target.robot is not None and target.robot.owner != player:
-            return ("Cannot hijack robot remotely.", False)
+        if target.robot is not None:
+            return ("A robot already exists on this asteroid.", False)
         player.money -= 100
-        if target.robot is None:
-            target.robot = Robot(player, player.robot_capacity)
-            return (
-            f"{player.symbol} remotely plants a robot on A{target.id} with capacity {player.robot_capacity}.", False)
-        else:
+        target.robot = Robot(player, player.robot_capacity)
+        return (f"{player.symbol} plants a robot on A{target.id} with capacity {player.robot_capacity}.", False)
+
+    def hijack_robot(self, player):
+        """
+        Hijack is allowed only if the player is standing on an asteroid that has a robot owned by another player.
+        Hijacking costs nothing and transfers ownership of the robot.
+        """
+        asteroid = next((a for a in self.asteroids if a.x == player.x and a.y == player.y and not a.is_exhausted()), None)
+        if asteroid is None:
+            return ("No asteroid here for hijacking.", False)
+        if asteroid.robot is None:
+            return ("No robot on this asteroid to hijack.", False)
+        if asteroid.robot.owner == player:
             return ("You already own the robot here.", False)
+        # Transfer robot ownership without cost.
+        asteroid.robot.owner = player
+        # Optionally, update robot capacity to match the hijacking player's capacity.
+        asteroid.robot.capacity = player.robot_capacity
+        return (f"{player.symbol} hijacks the robot on A{asteroid.id} and now controls it.", True)
 
     def upgrade_robot_on_tile(self, player):
-        # Look for an asteroid within the player's robot range that contains the player's robot.
+        """
+        Look for an asteroid within the player's robot range that contains the player's robot.
+        Upgrade the robot’s capacity if it is less than the player's current robot_capacity.
+        """
         candidate = None
         for a in self.asteroids:
-            if a.robot and a.robot.owner == player and manhattan_distance(player.x, player.y, a.x,
-                                                                          a.y) <= player.robot_range:
+            if a.robot and a.robot.owner == player and manhattan_distance(player.x, player.y, a.x, a.y) <= player.robot_range:
                 candidate = a
                 break
         if candidate:
@@ -199,8 +194,7 @@ class Game:
                 player.mining_capacity += self.settings.mining_upgrade_amount
                 player.upgrades_purchased += 1
                 player.mining_upgrade_cost += self.settings.upgrade_mining_cost_increase
-                log_func(
-                    f"{player.symbol} mining capacity upgraded to {player.mining_capacity}. Next upgrade will cost ${player.mining_upgrade_cost}.")
+                log_func(f"{player.symbol} mining capacity upgraded to {player.mining_capacity}. Next upgrade will cost ${player.mining_upgrade_cost}.")
             else:
                 log_func(f"{player.symbol} lacks money for mining upgrade.")
         elif upgrade_type == "discovery":
@@ -210,8 +204,7 @@ class Game:
                 player.discovery_range += self.settings.discovery_upgrade_amount
                 player.upgrades_purchased += 1
                 player.discovery_upgrade_cost += self.settings.upgrade_discovery_cost_increase
-                log_func(
-                    f"{player.symbol} discovery range upgraded to {player.discovery_range}. Next upgrade will cost ${player.discovery_upgrade_cost}.")
+                log_func(f"{player.symbol} discovery range upgraded to {player.discovery_range}. Next upgrade will cost ${player.discovery_upgrade_cost}.")
             else:
                 log_func(f"{player.symbol} lacks money for discovery upgrade.")
         elif upgrade_type == "movement":
@@ -221,8 +214,7 @@ class Game:
                 player.movement_range += self.settings.movement_upgrade_amount
                 player.upgrades_purchased += 1
                 player.movement_upgrade_cost += self.settings.upgrade_movement_cost_increase
-                log_func(
-                    f"{player.symbol} movement range upgraded to {player.movement_range}. Next upgrade will cost ${player.movement_upgrade_cost}.")
+                log_func(f"{player.symbol} movement range upgraded to {player.movement_range}. Next upgrade will cost ${player.movement_upgrade_cost}.")
             else:
                 log_func(f"{player.symbol} lacks money for movement upgrade.")
         elif upgrade_type == "robot_range":
@@ -232,8 +224,7 @@ class Game:
                 player.robot_range += self.settings.robot_range_upgrade_amount
                 player.upgrades_purchased += 1
                 player.robot_range_upgrade_cost += self.settings.upgrade_robot_range_cost_increase
-                log_func(
-                    f"{player.symbol} robot range upgraded to {player.robot_range}. Next upgrade will cost ${player.robot_range_upgrade_cost}.")
+                log_func(f"{player.symbol} robot range upgraded to {player.robot_range}. Next upgrade will cost ${player.robot_range_upgrade_cost}.")
             else:
                 log_func(f"{player.symbol} lacks money for robot range upgrade.")
         elif upgrade_type == "robot_capacity":
@@ -243,8 +234,7 @@ class Game:
                 player.robot_capacity += self.settings.robot_capacity_upgrade_amount
                 player.upgrades_purchased += 1
                 player.robot_capacity_upgrade_cost += self.settings.upgrade_robot_capacity_cost_increase
-                log_func(
-                    f"{player.symbol} robot capacity upgraded to {player.robot_capacity}. Next upgrade will cost ${player.robot_capacity_upgrade_cost}.")
+                log_func(f"{player.symbol} robot capacity upgraded to {player.robot_capacity}. Next upgrade will cost ${player.robot_capacity_upgrade_cost}.")
             else:
                 log_func(f"{player.symbol} lacks money for robot capacity upgrade.")
 

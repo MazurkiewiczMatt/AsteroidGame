@@ -3,7 +3,7 @@ from collections import deque
 
 from game import Game
 from .panels import UpgradeGUI, LeaderboardGUI, AsteroidGraphGUI
-from constants import *
+from constants import *  # This includes helper functions (e.g. manhattan_distance) and color constants
 
 class GameGUI(tk.Tk):
     def __init__(self, game: Game):
@@ -13,10 +13,10 @@ class GameGUI(tk.Tk):
         self.game = game
         self.current_player_index = 0
         self.move_mode = False
-        self.remote_plant_mode = False
-        self.debris_mode = False  # New mode for debris deployment
+        self.remote_plant_mode = False  # For planting a robot (remote planting)
+        self.debris_mode = False  # For debris torpedo deployment
         self.allowed_moves = set()
-        self.allowed_remote_cells = set()
+        self.allowed_remote_cells = set()  # Allowed cells for planting a robot
         self.allowed_debris_cells = set()  # Allowed cells for debris torpedo deployment
         self.selected_tile = None
         self.leaderboard_window = None
@@ -29,7 +29,7 @@ class GameGUI(tk.Tk):
         self.update_timer()
 
     def get_tile_properties(self, x, y):
-        """Return (text, bg_color, fg_color) for tile at (x,y) using obstructed metric and debris."""
+        """Return (text, bg_color, fg_color) for the tile at (x,y), showing debris, discovered status, players, asteroids, etc."""
         if (x, y) in self.game.debris:
             return ("D", DEBRIS_BG, "white")
         if (x, y) not in self.game.discovered_tiles:
@@ -116,7 +116,7 @@ class GameGUI(tk.Tk):
         log_container.pack()
         tk.Label(log_container, text="Game Log:", bg=DARK_BG, fg=DARK_FG).pack()
         self.log_text = tk.Text(log_container, width=40, height=15, state="disabled",
-                                bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
+                                 bg=DARK_BG, fg=DARK_FG, insertbackground=DARK_FG)
         self.log_text.pack()
         info_container = tk.Frame(self.right_frame, bg=DARK_BG)
         info_container.pack(pady=5)
@@ -146,19 +146,11 @@ class GameGUI(tk.Tk):
                                                                  self.open_upgrade_window()],
                                                 bg=BUTTON_BG, fg=BUTTON_FG)
         self.upgrade_general_button.pack(side="left", padx=5)
+        # REMOTE planting is now the only planting action (costs $100)
         self.plant_robot_button = tk.Button(instant_actions_frame, text="Plant Robot ($100)",
-                                            command=lambda: [self.cancel_pending_actions(), self.plant_robot()],
+                                            command=lambda: [self.cancel_pending_actions(), self.remote_plant_robot()],
                                             bg=BUTTON_BG, fg=BUTTON_FG)
         self.plant_robot_button.pack(side="left", padx=5)
-        self.remote_plant_robot_button = tk.Button(instant_actions_frame, text="Remote Plant Robot ($100)",
-                                                   command=lambda: [self.cancel_pending_actions(),
-                                                                    self.remote_plant_robot()],
-                                                   bg=BUTTON_BG, fg=BUTTON_FG)
-        self.remote_plant_robot_button.pack(side="left", padx=5)
-        self.upgrade_robot_button = tk.Button(instant_actions_frame, text="Upgrade Robot",
-                                              command=lambda: [self.cancel_pending_actions(), self.upgrade_robot()],
-                                              bg=BUTTON_BG, fg=BUTTON_FG)
-        self.upgrade_robot_button.pack(side="left", padx=5)
         self.pause_timer_button = tk.Button(instant_actions_frame, text="Pause Timer", command=self.toggle_timer,
                                             bg=BUTTON_BG, fg=BUTTON_FG)
         self.pause_timer_button.pack(side="left", padx=5)
@@ -177,6 +169,11 @@ class GameGUI(tk.Tk):
                                        command=lambda: [self.cancel_pending_actions(), self.deploy_debris_torpedo()],
                                        bg=BUTTON_BG, fg=BUTTON_FG)
         self.debris_button.pack(side="left", padx=5)
+        # New Hijack action (turn action)
+        self.hijack_robot_button = tk.Button(turn_actions_frame, text="Hijack Robot",
+                                             command=lambda: [self.cancel_pending_actions(), self.hijack_robot()],
+                                             bg=BUTTON_BG, fg=BUTTON_FG)
+        self.hijack_robot_button.pack(side="left", padx=5)
         self.timer_label = tk.Label(turn_actions_frame, text=f"Time remaining: {self.turn_timer_remaining}", bg=DARK_BG,
                                     fg=DARK_FG)
         self.timer_label.pack(side="left", padx=10)
@@ -228,16 +225,19 @@ class GameGUI(tk.Tk):
     def update_display(self):
         self.game.update_discovered()
         active = self.get_current_player()
+        # Movement: update allowed moves if in move_mode.
         if self.move_mode:
             reachable = self.get_reachable_cells((active.x, active.y), active.movement_range)
             self.allowed_moves = set(reachable.keys())
+        # Remote planting: update allowed cells for planting a robot.
         if self.remote_plant_mode:
             reachable = self.get_reachable_cells((active.x, active.y), active.robot_range)
             self.allowed_remote_cells = {(a.x, a.y) for a in self.game.asteroids
                                          if (a.x, a.y) in reachable
                                          and (a.x, a.y) in self.game.discovered_tiles
                                          and not a.is_exhausted()
-                                         and (a.robot is None or a.robot.owner != active)}
+                                         and (a.robot is None)}
+        # Update each cell on the grid.
         for y in range(self.game.grid_height):
             for x in range(self.game.grid_width):
                 text, bg_color, fg_color = self.get_tile_properties(x, y)
@@ -248,33 +248,30 @@ class GameGUI(tk.Tk):
                 self.cell_labels[y][x].config(text=text, bg=bg_color, fg=fg_color)
         self.player_info_label.config(text=self.format_player_info(active), fg=active.color)
         self.current_tile_info_label.config(text=self.format_current_tile_info(active), fg=DARK_FG)
+        # Update Mine button state.
         mineable = any(a for a in self.game.asteroids if a.x == active.x and a.y == active.y and not a.is_exhausted())
         self.mine_button.config(state="normal" if mineable else "disabled")
-        local_asteroid = next(
-            (a for a in self.game.asteroids if a.x == active.x and a.y == active.y and not a.is_exhausted()), None)
-        if local_asteroid and (
-                local_asteroid.robot is None or local_asteroid.robot.owner != active) and active.money >= 100:
+        # Update Plant Robot button (instant action) based on valid remote planting options.
+        reachable = self.get_reachable_cells((active.x, active.y), active.robot_range)
+        plant_candidates = {(a.x, a.y) for a in self.game.asteroids
+                             if (a.x, a.y) in reachable
+                             and (a.x, a.y) in self.game.discovered_tiles
+                             and not a.is_exhausted()
+                             and (a.robot is None)}
+        if plant_candidates and active.money >= 100:
             self.plant_robot_button.config(state="normal")
         else:
             self.plant_robot_button.config(state="disabled")
-        reachable = self.get_reachable_cells((active.x, active.y), active.robot_range)
-        remote_candidates = {(a.x, a.y) for a in self.game.asteroids
-                             if (a.x, a.y) != (active.x, active.y)
-                             and (a.x, a.y) in reachable
-                             and (a.x, a.y) in self.game.discovered_tiles
-                             and not a.is_exhausted()
-                             and (a.robot is None or a.robot.owner != active)}
-        if active.robot_range > 0 and remote_candidates:
-            self.remote_plant_robot_button.config(state="normal")
+        # Update Hijack Robot button (turn action): enable only if on an asteroid with another player's robot.
+        hijack_candidate = next((a for a in self.game.asteroids
+                                 if a.x == active.x and a.y == active.y
+                                 and a.robot is not None
+                                 and a.robot.owner != active
+                                 and not a.is_exhausted()), None)
+        if hijack_candidate:
+            self.hijack_robot_button.config(state="normal")
         else:
-            self.remote_plant_robot_button.config(state="disabled")
-        candidate = next((a for a in self.game.asteroids if
-                          a.robot and a.robot.owner == active and manhattan_distance(active.x, active.y, a.x,
-                                                                                     a.y) <= active.robot_range), None)
-        if candidate and candidate.robot.capacity < active.robot_capacity:
-            self.upgrade_robot_button.config(state="normal")
-        else:
-            self.upgrade_robot_button.config(state="disabled")
+            self.hijack_robot_button.config(state="disabled")
         self.debris_button.config(state="normal" if active.money >= 200 else "disabled")
         if self.leaderboard_window is not None:
             self.leaderboard_window.update_content()
@@ -320,17 +317,16 @@ class GameGUI(tk.Tk):
                 if target is None:
                     self.log("No asteroid on this tile.")
                 else:
-                    message, hijack = self.game.remote_plant_robot(active, target)
+                    message, _ = self.game.remote_plant_robot(active, target)
                     self.log(message)
                     self.remote_plant_mode = False
                     self.allowed_remote_cells = set()
                     self.update_display()
-                    if hijack:
-                        self.after(500, self.next_turn)
                 return
             else:
-                self.log("Tile not allowed for remote planting.")
+                self.log("Tile not allowed for planting.")
                 return
+        # Default: select tile to view its info.
         self.selected_tile = (x, y)
         info = f"Tile ({x},{y}):\n"
         if (x, y) not in self.game.discovered_tiles:
@@ -432,37 +428,33 @@ class GameGUI(tk.Tk):
         self.reset_timer()
         self.after(500, self.next_turn)
 
-    def plant_robot(self):
-        self.cancel_pending_actions()
-        active = self.get_current_player()
-        message, hijack = self.game.plant_robot(active)
-        self.log(message)
-        self.update_display()
-        if hijack:
-            self.after(500, self.next_turn)
-
     def remote_plant_robot(self):
+        """Initiate remote planting (i.e. planting a robot) by highlighting valid asteroid tiles."""
         self.cancel_pending_actions()
         active = self.get_current_player()
         reachable = self.get_reachable_cells((active.x, active.y), active.robot_range)
+        self.remote_plant_mode = True
         self.allowed_remote_cells = {(a.x, a.y) for a in self.game.asteroids
                                      if (a.x, a.y) in reachable
                                      and (a.x, a.y) in self.game.discovered_tiles
                                      and not a.is_exhausted()
-                                     and (a.robot is None or a.robot.owner != active)}
-        if active.robot_range > 0 and self.allowed_remote_cells:
-            self.remote_plant_mode = True
-            self.log("Select a highlighted asteroid tile to remotely plant a robot (hijacking not allowed).")
+                                     and (a.robot is None)}
+        if self.allowed_remote_cells and active.money >= 100:
+            self.log("Select a highlighted asteroid tile to plant a robot ($100).")
         else:
-            self.log("No valid remote asteroid targets available.")
+            self.log("No valid asteroid targets available for planting.")
+            self.remote_plant_mode = False
         self.update_display()
 
-    def upgrade_robot(self):
+    def hijack_robot(self):
+        """Attempt to hijack the robot on the asteroid at the current player's location."""
         self.cancel_pending_actions()
         active = self.get_current_player()
-        result = self.game.upgrade_robot_on_tile(active)
+        result, hijack_flag = self.game.hijack_robot(active)
         self.log(result)
         self.update_display()
+        if hijack_flag:
+            self.after(500, self.next_turn)
 
     def deploy_debris_torpedo(self):
         active = self.get_current_player()
