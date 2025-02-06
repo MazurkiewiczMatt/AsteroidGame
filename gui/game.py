@@ -228,6 +228,16 @@ class GameGUI(tk.Tk):
                                                                  self.open_upgrade_window()],
                                                 bg=BUTTON_BG, fg=BUTTON_FG)
         self.upgrade_general_button.pack(side="left", padx=UI_PADDING_SMALL)
+
+        # --- New Button for Upgrading All Robots ---
+        self.upgrade_all_robots_button = tk.Button(self.instant_actions_frame, text="Upgrade Robots",
+                                                   command=lambda: [self.cancel_pending_actions(),
+                                                                    self.upgrade_all_robots()],
+                                                   bg=BUTTON_BG, fg=BUTTON_FG)
+        self.upgrade_all_robots_button.pack(side="left", padx=UI_PADDING_SMALL)
+        # (Optional) Store pack options for later showing/hiding:
+        self.upgrade_all_robots_button.pack_opts = {"side": "left", "padx": UI_PADDING_SMALL}
+
         self.plant_robot_button = tk.Button(self.instant_actions_frame, text="Plant Robot ($100)",
                                             command=lambda: [self.cancel_pending_actions(), self.remote_plant_robot()],
                                             bg=BUTTON_BG, fg=BUTTON_FG, state="disabled")
@@ -406,11 +416,27 @@ class GameGUI(tk.Tk):
         if self.asteroid_stats_window is not None:
             self.asteroid_stats_window.update_content()
 
+        # Update Upgrade All Robots button: enable only if there is at least one robot (owned by active player)
+        # within active.robot_range that has a capacity lower than active.robot_capacity.
+        active = self.get_current_player()
+        upgrade_possible = False
+        for a in self.game.asteroids:
+            if a.robot and a.robot.owner == active:
+                if manhattan_distance(active.x, active.y, a.x, a.y) <= active.robot_range:
+                    if a.robot.capacity < active.robot_capacity:
+                        upgrade_possible = True
+                        break
+        if upgrade_possible:
+            self.upgrade_all_robots_button.config(state="normal")
+        else:
+            self.upgrade_all_robots_button.config(state="disabled")
+
         # Update conditional buttons’ visibility so that only enabled buttons are shown.
         self.update_button_visibility(self.plant_robot_button)
         self.update_button_visibility(self.mine_button)
         self.update_button_visibility(self.debris_button)
         self.update_button_visibility(self.hijack_robot_button)
+        self.update_button_visibility(self.upgrade_all_robots_button)
 
     def on_grid_click(self, x, y):
         if self.debris_mode:
@@ -531,6 +557,25 @@ class GameGUI(tk.Tk):
             cur = prev[cur]
         path.reverse()
         return path
+
+    def upgrade_all_robots(self):
+        active = self.get_current_player()
+        upgraded_any = False
+        for a in self.game.asteroids:
+            if a.robot and a.robot.owner == active:
+                if manhattan_distance(active.x, active.y, a.x, a.y) <= active.robot_range:
+                    if a.robot.capacity < active.robot_capacity:
+                        old_cap = a.robot.capacity
+                        a.robot.capacity = active.robot_capacity
+                        self.log(f"{active.symbol} upgrades robot on A{a.id} from capacity {old_cap} to {active.robot_capacity}.")
+                        upgraded_any = True
+        if upgraded_any:
+            self.log("All eligible robots have been upgraded.")
+        else:
+            self.log("No eligible robots found to upgrade.")
+        # Optionally, you can update the display or proceed to the next turn
+        self.update_display()
+
 
     def move_player(self):
         self.cancel_pending_actions()
