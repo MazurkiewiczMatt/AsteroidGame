@@ -251,49 +251,50 @@ class AsteroidGraphGUI(tk.Toplevel):
             max_bar_value = max(a.resource * a.value for a in discovered) if discovered else 1
 
         for a in discovered:
-            # Use the tile's background color (e.g. as defined by your get_tile_properties) for the row.
-            _, fill_color, _ = self.master.get_tile_properties(a.x, a.y)
-            row_tag = f"asteroid_{a.id}"
-            row_id = self.canvas.create_rectangle(5, y, self.canvas_width - 5, y + self.row_height, fill=fill_color,
-                                                  outline="", tags=row_tag)
-            # Bind clicking on the row.
-            self.canvas.tag_bind(row_tag, "<Button-1>", lambda e, ax=a.x, ay=a.y: self.on_row_click(ax, ay))
+            if not a.is_exhausted():
+                # Use the tile's background color (e.g. as defined by your get_tile_properties) for the row.
+                _, fill_color, _ = self.master.get_tile_properties(a.x, a.y)
+                row_tag = f"asteroid_{a.id}"
+                row_id = self.canvas.create_rectangle(5, y, self.canvas_width - 5, y + self.row_height, fill=fill_color,
+                                                      outline="", tags=row_tag)
+                # Bind clicking on the row.
+                self.canvas.tag_bind(row_tag, "<Button-1>", lambda e, ax=a.x, ay=a.y: self.on_row_click(ax, ay))
 
-            # Determine the color to use for text: if a robot is present, use its owner's color.
-            row_color = a.robot.owner.color if a.robot else DARK_FG
+                # Determine the color to use for text: if a robot is present, use its owner's color.
+                row_color = a.robot.owner.color if a.robot else DARK_FG
 
-            self.canvas.create_text(col_positions[0], y + self.row_height / 2, anchor="w",
-                                    text=f"A{a.id}", fill=row_color, font=("Arial", 10), tags=row_tag)
-            self.canvas.create_text(col_positions[1], y + self.row_height / 2, anchor="w",
-                                    text=f"({a.x},{a.y})", fill=row_color, font=("Arial", 10), tags=row_tag)
-            self.canvas.create_text(col_positions[2], y + self.row_height / 2, anchor="w",
-                                    text=f"{a.resource:.0f}", fill=row_color, font=("Arial", 10), tags=row_tag)
-            self.canvas.create_text(col_positions[3], y + self.row_height / 2, anchor="w",
-                                    text=f"${a.value:.2f}", fill=row_color, font=("Arial", 10), tags=row_tag)
-            total_val = a.resource * a.value
-            self.canvas.create_text(col_positions[4], y + self.row_height / 2, anchor="w",
-                                    text=f"${total_val:.2f}", fill=row_color, font=("Arial", 10), tags=row_tag)
-            players_here = [p for p in self.game.players if p.x == a.x and p.y == a.y]
-            players_text = ", ".join(p.symbol for p in players_here)
-            self.canvas.create_text(col_positions[5], y + self.row_height / 2, anchor="w",
-                                    text=players_text, fill=row_color, font=("Arial", 10), tags=row_tag)
-            robot_text = ""
-            if a.robot:
-                robot_text = f"{a.robot.owner.symbol} (Cap: {a.robot.capacity})"
-            self.canvas.create_text(col_positions[6], y + self.row_height / 2, anchor="w",
-                                    text=robot_text, fill=row_color, font=("Arial", 10, "bold"), tags=row_tag)
-            # Draw the bar chart rectangle.
-            bar_x = col_positions[7]
-            bar_y = y + 5
-            max_bar_length = self.canvas_width - bar_x - 20
-            if self.show_resource_bar:
-                bar_val = a.resource
-            else:
-                bar_val = total_val
-            bar_length = (bar_val / max_bar_value) * max_bar_length if max_bar_value > 0 else 0
-            self.canvas.create_rectangle(bar_x, bar_y, bar_x + bar_length, bar_y + self.row_height - 10,
-                                         fill="cyan", outline="cyan", tags=row_tag)
-            y += self.row_height
+                self.canvas.create_text(col_positions[0], y + self.row_height / 2, anchor="w",
+                                        text=f"A{a.id}", fill=row_color, font=("Arial", 10), tags=row_tag)
+                self.canvas.create_text(col_positions[1], y + self.row_height / 2, anchor="w",
+                                        text=f"({a.x},{a.y})", fill=row_color, font=("Arial", 10), tags=row_tag)
+                self.canvas.create_text(col_positions[2], y + self.row_height / 2, anchor="w",
+                                        text=f"{a.resource:.0f}", fill=row_color, font=("Arial", 10), tags=row_tag)
+                self.canvas.create_text(col_positions[3], y + self.row_height / 2, anchor="w",
+                                        text=f"${a.value:.2f}", fill=row_color, font=("Arial", 10), tags=row_tag)
+                total_val = a.resource * a.value
+                self.canvas.create_text(col_positions[4], y + self.row_height / 2, anchor="w",
+                                        text=f"${total_val:.2f}", fill=row_color, font=("Arial", 10), tags=row_tag)
+                players_here = [p for p in self.game.players if p.x == a.x and p.y == a.y]
+                players_text = ", ".join(p.symbol for p in players_here)
+                self.canvas.create_text(col_positions[5], y + self.row_height / 2, anchor="w",
+                                        text=players_text, fill=row_color, font=("Arial", 10), tags=row_tag)
+                robot_text = ""
+                if a.robot:
+                    robot_text = f"{a.robot.owner.symbol} (Cap: {a.robot.capacity})"
+                self.canvas.create_text(col_positions[6], y + self.row_height / 2, anchor="w",
+                                        text=robot_text, fill=row_color, font=("Arial", 10, "bold"), tags=row_tag)
+                # Draw the bar chart rectangle.
+                bar_x = col_positions[7]
+                bar_y = y + 5
+                max_bar_length = self.canvas_width - bar_x - 20
+                if self.show_resource_bar:
+                    bar_val = a.resource
+                else:
+                    bar_val = total_val
+                bar_length = (bar_val / max_bar_value) * max_bar_length if max_bar_value > 0 else 0
+                self.canvas.create_rectangle(bar_x, bar_y, bar_x + bar_length, bar_y + self.row_height - 10,
+                                             fill="cyan", outline="cyan", tags=row_tag)
+                y += self.row_height
 
     def on_row_click(self, x, y):
         self.master.on_asteroid_selected(x, y)
