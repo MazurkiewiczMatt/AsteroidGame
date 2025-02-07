@@ -36,7 +36,7 @@ class SettingsGUI(tk.Tk):
             ("Number of Players", "num_players", 3),
             ("Initial Money", "initial_money", 500),
             ("Turn Timer Duration (sec)", "turn_timer_duration", 50),
-            ("Initial Mining Capacity", "initial_mining_capacity", 100),
+            ("Initial Mining Capacity", "initial_mining_capacity", 150),
             ("Initial Discovery Range", "initial_discovery_range", 2),
             ("Initial Movement Range", "initial_movement_range", 2),
             ("Initial Robot Range", "initial_robot_range", 0),
@@ -61,11 +61,7 @@ class SettingsGUI(tk.Tk):
             ("Grid Width", "grid_width", 16),
             ("Grid Height", "grid_height", 16),
             ("Minimum Asteroids", "min_asteroids", 15),
-            ("Maximum Asteroids", "max_asteroids", 25),
-            ("Asteroid Resource Min", "asteroid_min", 100),
-            ("Asteroid Resource Max", "asteroid_max", 1000),
-            ("Asteroid Unit Value Min", "asteroid_value_min", 0.8),
-            ("Asteroid Unit Value Max", "asteroid_value_max", 2.0)
+            ("Maximum Asteroids", "max_asteroids", 25)
         ]
         row_index = 1
         for label_text, key, default in map_entries:
@@ -93,7 +89,7 @@ class SettingsGUI(tk.Tk):
             ],
             "Mining": [
                 ("Upgrade Mining Cost", "upgrade_mining_cost", 200),
-                ("Mining Upgrade Amount", "mining_upgrade_amount", 10),
+                ("Mining Upgrade Amount", "mining_upgrade_amount", 20),
                 ("Upgrade Mining Cost Increase", "upgrade_mining_cost_increase", 10)
             ],
             "Discovery": [
@@ -141,10 +137,6 @@ class SettingsGUI(tk.Tk):
                 num_players=int(self.fields["num_players"].get()),
                 grid_width=int(self.fields["grid_width"].get()),
                 grid_height=int(self.fields["grid_height"].get()),
-                asteroid_min=int(self.fields["asteroid_min"].get()),
-                asteroid_max=int(self.fields["asteroid_max"].get()),
-                asteroid_value_min=float(self.fields["asteroid_value_min"].get()),
-                asteroid_value_max=float(self.fields["asteroid_value_max"].get()),
                 initial_money=int(self.fields["initial_money"].get()),
                 initial_mining_capacity=int(self.fields["initial_mining_capacity"].get()),
                 initial_discovery_range=int(self.fields["initial_discovery_range"].get()),
