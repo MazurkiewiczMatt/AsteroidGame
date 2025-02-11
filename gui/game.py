@@ -703,15 +703,6 @@ class GameGUI(tk.Tk):
             self.log("All asteroids exhausted. Game over!")
             self.disable_controls()
             return
-        
-        # questionable why its here but whatever
-        active = self.game.get_current_player()
-        warp = active.get_module("WarpDrive")
-        if warp is not None:
-            warp.used_this_turn = False
-        factory = active.get_module("Factory")
-        if factory is not None:
-            factory.robots_produced_this_turn = 0
 
         self.game.next_turn()
         

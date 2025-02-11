@@ -17,13 +17,9 @@ class Module:
         self.upgrade_increment = upgrade_increment
         self.cost_increase = cost_increase
         self.build_cost = build_cost
-        self.active = True  # Can be used to disable a module if needed
 
-    def can_use(self):
-        """
-        Returns True if the module is operational.
-        """
-        return self.active
+    def next_turn(self):
+        pass
 
     def __str__(self):
         return f"{self.name} (Level {self.level})"
@@ -124,6 +120,9 @@ class Factory(Module):
         else:
             return False, "Max level of factory reached."
 
+    def next_turn(self):
+        self.robots_produced_this_turn = 0
+
 
 class LaunchBay(Module):
     """
@@ -147,10 +146,6 @@ class LaunchBay(Module):
         else:
             return False, "Max level of launch bay reached."
 
-
-# ========================
-# New Modules
-# ========================
 
 class IcePenetrator(Module):
     """
@@ -246,3 +241,6 @@ class WarpDrive(Module):
                 return False, "Insufficient funds for WarpDrive upgrade."
         else:
             return False, "Max level of WarpDrive reached."
+
+    def next_turn(self):
+        self.used_this_turn = False

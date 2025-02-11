@@ -595,6 +595,11 @@ class Game:
         return self.players[self.current_player_index]
 
     def next_turn(self):
+        # resetting modules
+        for player in self.players:
+            for module in player.modules:
+                module.next_turn()
+        # updating active player index
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         if self.current_player_index == 0:
             self.turn += 1
