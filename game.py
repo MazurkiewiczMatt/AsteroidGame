@@ -6,6 +6,8 @@ from collections import deque
 from settings import GameSettings
 from constants import manhattan_distance, PLAYER_COLORS  # assumes you have these defined
 
+from modules import Drill, Reactor, Telescope, Factory, LaunchBay
+
 # Define asteroid types and their properties.
 ASTEROID_TYPES = {
     "ice": {
@@ -74,32 +76,50 @@ class Asteroid:
                                     weights=[weight for etype, weight in events],
                                     k=1)[0]
         if event_type == "mining":
-            old = player.mining_capacity
-            player.mining_capacity += 10
-            return f"Your mining capacity increased by 10! {old} -> {player.mining_capacity}"
+            drill = player.get_module("Drill")
+            if drill is None:
+                return "No Drill available. Cannot increase mining capacity."
+            old = drill.mining_capacity
+            drill.mining_capacity += 10
+            return f"Your mining capacity increased by 10! {old} -> {drill.mining_capacity}"
         elif event_type == "discovery":
-            old = player.discovery_range
-            player.discovery_range += 1
-            return f"Your discovery range increased by 1! {old} -> {player.discovery_range}"
+            telescope = player.get_module("Telescope")
+            if telescope is None:
+                return "No Telescope available. Cannot increase discovery range."
+            old = telescope.discovery_range
+            telescope.discovery_range += 1
+            return f"Your discovery range increased by 1! {old} -> {telescope.discovery_range}"
         elif event_type == "movement":
-            old = player.movement_range
-            player.movement_range += 1
-            return f"Your movement range increased by 1! {old} -> {player.movement_range}"
+            reactor = player.get_module("Reactor")
+            if reactor is None:
+                return "No Reactor available. Cannot increase movement range."
+            old = reactor.movement_range
+            reactor.movement_range += 1
+            return f"Your movement range increased by 1! {old} -> {reactor.movement_range}"
         elif event_type == "robot_range":
-            old = player.robot_range
-            player.robot_range += 1
-            return f"Your robot range increased by 1! {old} -> {player.robot_range}"
+            launch_bay = player.get_module("LaunchBay")
+            if launch_bay is None:
+                return "No LaunchBay available. Cannot increase robot range."
+            old = launch_bay.robot_range
+            launch_bay.robot_range += 1
+            return f"Your robot range increased by 1! {old} -> {launch_bay.robot_range}"
         elif event_type == "robot_capacity":
-            old = player.robot_capacity
-            player.robot_capacity += 5
-            return f"Your robot capacity increased by 10! {old} -> {player.robot_capacity}"
+            factory = player.get_module("Factory")
+            if factory is None:
+                return "No Factory available. Cannot increase robot capacity."
+            old = factory.robot_capacity
+            factory.robot_capacity += 5
+            return f"Your robot capacity increased by 10! {old} -> {factory.robot_capacity}"
         elif event_type == "money":
             bonus = random.randint(100, 500)
             player.money += bonus
             return f"You received a bonus of ${bonus}!"
         elif event_type == "free_robot":
             if self.robot is None:
-                self.robot = Robot(player, player.robot_capacity)
+                factory = player.get_module("Factory")
+                if factory is None:
+                    return "No Factory available. Cannot plant a free robot."
+                self.robot = Robot(player, factory.robot_capacity)
                 return "A robot has been planted for you for free on this asteroid!"
             else:
                 return "A free robot event was triggered—but a robot is already present. No effect."
@@ -109,25 +129,35 @@ class Asteroid:
             messages = []
             for upgrade in chosen:
                 if upgrade == "mining":
-                    old = player.mining_capacity
-                    player.mining_capacity += 10
-                    messages.append(f"mining capacity: {old} -> {player.mining_capacity}")
+                    drill = player.get_module("Drill")
+                    if drill is not None:
+                        old = drill.mining_capacity
+                        drill.mining_capacity += 10
+                        messages.append(f"mining capacity: {old} -> {drill.mining_capacity}")
                 elif upgrade == "discovery":
-                    old = player.discovery_range
-                    player.discovery_range += 1
-                    messages.append(f"discovery range: {old} -> {player.discovery_range}")
+                    telescope = player.get_module("Telescope")
+                    if telescope is not None:
+                        old = telescope.discovery_range
+                        telescope.discovery_range += 1
+                        messages.append(f"discovery range: {old} -> {telescope.discovery_range}")
                 elif upgrade == "movement":
-                    old = player.movement_range
-                    player.movement_range += 1
-                    messages.append(f"movement range: {old} -> {player.movement_range}")
+                    reactor = player.get_module("Reactor")
+                    if reactor is not None:
+                        old = reactor.movement_range
+                        reactor.movement_range += 1
+                        messages.append(f"movement range: {old} -> {reactor.movement_range}")
                 elif upgrade == "robot_range":
-                    old = player.robot_range
-                    player.robot_range += 1
-                    messages.append(f"robot range: {old} -> {player.robot_range}")
+                    launch_bay = player.get_module("LaunchBay")
+                    if launch_bay is not None:
+                        old = launch_bay.robot_range
+                        launch_bay.robot_range += 1
+                        messages.append(f"robot range: {old} -> {launch_bay.robot_range}")
                 elif upgrade == "robot_capacity":
-                    old = player.robot_capacity
-                    player.robot_capacity += 10
-                    messages.append(f"robot capacity: {old} -> {player.robot_capacity}")
+                    factory = player.get_module("Factory")
+                    if factory is not None:
+                        old = factory.robot_capacity
+                        factory.robot_capacity += 10
+                        messages.append(f"robot capacity: {old} -> {factory.robot_capacity}")
             return "Double Upgrade! " + ", ".join(messages)
         else:
             return f"You have encountered a mysterious event on Asteroid A{self.id}."
@@ -151,20 +181,42 @@ class Player:
         self.color = PLAYER_COLORS[(Player.next_id - 1) % len(PLAYER_COLORS)]
         Player.next_id += 1
         self.money = settings.initial_money
-        self.mining_capacity = settings.initial_mining_capacity
-        self.discovery_range = settings.initial_discovery_range
-        self.movement_range = settings.initial_movement_range
-        self.robot_range = settings.initial_robot_range
-        self.robot_capacity = settings.initial_robot_capacity
+        # Instead of separate attributes, store all modules in a list.
+        self.modules = []
+        self.modules.append(Drill(settings.initial_mining_capacity,
+                                  settings.upgrade_mining_cost,
+                                  settings.mining_upgrade_amount,
+                                  settings.upgrade_mining_cost_increase))
+        self.modules.append(Telescope(settings.initial_discovery_range,
+                                      settings.upgrade_discovery_cost,
+                                      settings.discovery_upgrade_amount,
+                                      settings.upgrade_discovery_cost_increase))
+        self.modules.append(Reactor(settings.initial_movement_range,
+                                    settings.upgrade_movement_cost,
+                                    settings.movement_upgrade_amount,
+                                    settings.upgrade_movement_cost_increase))
+        self.modules.append(LaunchBay(settings.initial_robot_range,
+                                      settings.upgrade_robot_range_cost,
+                                      settings.robot_range_upgrade_amount,
+                                      settings.upgrade_robot_range_cost_increase))
+        self.modules.append(Factory(settings.initial_robot_capacity,
+                                    settings.upgrade_robot_capacity_cost,
+                                    settings.robot_capacity_upgrade_amount,
+                                    settings.upgrade_robot_capacity_cost_increase))
         self.upgrades_purchased = 0
         self.total_mined = 0
         self.x = x
         self.y = y
-        self.mining_upgrade_cost = settings.upgrade_mining_cost
-        self.discovery_upgrade_cost = settings.upgrade_discovery_cost
-        self.movement_upgrade_cost = settings.upgrade_movement_cost
-        self.robot_range_upgrade_cost = settings.upgrade_robot_range_cost
-        self.robot_capacity_upgrade_cost = settings.upgrade_robot_capacity_cost
+
+    def get_module(self, module_name):
+        """Returns the first module in self.modules whose name matches module_name (case-insensitive)."""
+        for mod in self.modules:
+            if module_name == "FusionReactor":
+                if mod.name.lower() == "nerva":
+                    return mod
+            if mod.name.lower() == module_name.lower():
+                return mod
+        return None
 
     def __str__(self):
         return f"{self.symbol}"
@@ -212,19 +264,49 @@ class Game:
 
     def update_discovered(self):
         for p in self.players:
+            telescope = p.get_module("Telescope")
+            if telescope is None:
+                continue
             for x in range(self.grid_width):
                 for y in range(self.grid_height):
-                    if manhattan_distance(p.x, p.y, x, y) <= p.discovery_range:
+                    if manhattan_distance(p.x, p.y, x, y) <= telescope.discovery_range:
                         self.discovered_tiles.add((x, y))
 
-    def get_reachable_cells(self, start, max_distance):
+    def get_reachable_cells(self, start, player):
+
+        if not(type(player) == int):
+
+            warp = player.get_module("WarpDrive")
+            allowed_warp = set()
+            if warp is not None and not(warp.used_this_turn):
+                # Allowed moves: any cell that is discovered, not debris, and without an asteroid.
+                allowed_warp = {(x, y) for x in range(self.grid_width) for y in range(self.grid_height)
+                        if (x, y) in self.discovered_tiles
+                        and (x, y) not in self.debris
+                        and not any(a for a in self.asteroids if a.x == x and a.y == y)}
+            reactor = player.get_module("Reactor")
+
+            if reactor is None and warp is None:
+                return False, "No Reactor available nor warp. Cannot move."
+                # Check if player has a FusionReactor to modify movement range.
+            fusion = player.get_module("FusionReactor")
+            if reactor is not None:
+                base_range = reactor.movement_range
+            else: 
+                base_range = 0
+            if fusion is not None:
+                base_range = int(base_range * fusion.movement_multiplier)
+        else:
+            base_range = player
+        
+        
         reachable = {}
         queue = deque()
         queue.append((start, 0))
         reachable[start] = 0
         while queue:
             (x, y), dist = queue.popleft()
-            if dist >= max_distance:
+            if dist >= base_range:
                 continue
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = x + dx, y + dy
@@ -236,6 +318,10 @@ class Game:
                     if (nx, ny) not in reachable or reachable[(nx, ny)] > dist + 1:
                         reachable[(nx, ny)] = dist + 1
                         queue.append(((nx, ny), dist + 1))
+
+        if not(type(player) == int): 
+            reachable = set(reachable.keys()) | set(allowed_warp)
+
         return reachable
 
     def find_path(self, start, end, allowed_moves):
@@ -262,17 +348,37 @@ class Game:
         return path
 
     def move_player(self, player, dest):
-        allowed = self.get_reachable_cells((player.x, player.y), player.movement_range)
+        # Check if the player has a WarpDrive.
+        warp = player.get_module("WarpDrive")
+        allowed_warp = {}
+        if warp is not None and not(warp.used_this_turn):
+            # Allowed moves: any cell that is discovered, not debris, and without an asteroid.
+            allowed_warp = {(x, y) for x in range(self.grid_width) for y in range(self.grid_height)
+                       if (x, y) in self.discovered_tiles
+                       and (x, y) not in self.debris
+                       and not any(a for a in self.asteroids if a.x == x and a.y == y)}
+        reactor = player.get_module("Reactor")
+        if reactor is None and warp is None:
+            return False, "No Reactor available. Cannot move."
+            # Check if player has a FusionReactor to modify movement range.
+        fusion = player.get_module("FusionReactor")
+        base_range = reactor.movement_range
+        if fusion is not None:
+            base_range = int(base_range * fusion.movement_multiplier)
+        allowed = self.get_reachable_cells((player.x, player.y), player)
         if dest not in allowed:
             return False, "Destination not reachable."
         path = self.find_path((player.x, player.y), dest, allowed)
-        if not path:
+        if not path and warp is None:
             return False, "No valid path found."
-        for (px, py) in path:
-            for i in range(max(0, px - player.discovery_range), min(self.grid_width, px + player.discovery_range + 1)):
-                for j in range(max(0, py - player.discovery_range), min(self.grid_height, py + player.discovery_range + 1)):
-                    if manhattan_distance(px, py, i, j) <= player.discovery_range:
-                        self.discovered_tiles.add((i, j))
+        # If not using warp drive, update discovered tiles based on Telescope.
+        telescope = player.get_module("Telescope")
+        if telescope is not None:
+            for (px, py) in path:
+                for i in range(max(0, px - telescope.discovery_range), min(self.grid_width, px + telescope.discovery_range + 1)):
+                    for j in range(max(0, py - telescope.discovery_range), min(self.grid_height, py + telescope.discovery_range + 1)):
+                        if manhattan_distance(px, py, i, j) <= telescope.discovery_range:
+                            self.discovered_tiles.add((i, j))
         old_pos = (player.x, player.y)
         player.x, player.y = dest
         message = f"{player.symbol} moves from {old_pos} to {dest} via path {path}."
@@ -285,10 +391,17 @@ class Game:
                 chance = 1
             if random.random() < chance:
                 event = asteroid.discovery(player)
+        # If using WarpDrive level 2, movement is instant (do not end turn).
+        if warp is not None and warp.level == 2:
+            message += " (Instant Warp: turn not consumed)"
         return True, (message, event, path, asteroid)
 
     def get_remote_plant_targets(self, player):
-        reachable = self.get_reachable_cells((player.x, player.y), player.robot_range)
+        launch_bay = player.get_module("LaunchBay")
+        factory = player.get_module("Factory")
+        if launch_bay is None or factory is None or factory.robots_produced_this_turn >= factory.robot_production:
+            return set()
+        reachable = self.get_reachable_cells((player.x, player.y), launch_bay.robot_range)
         targets = {(a.x, a.y) for a in self.asteroids
                    if (a.x, a.y) in reachable and (a.x, a.y) in self.discovered_tiles
                    and not a.is_exhausted() and a.robot is None}
@@ -296,10 +409,17 @@ class Game:
 
     def can_deploy_debris(self, cell):
         cx, cy = cell
-        debris_region = {(cx, cy), (cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)}
+        # Check if player has an ExplosivesLab to modify debris radius.
+        # For simplicity, we assume that the current player’s ExplosivesLab (if any) affects debris.
+        current = self.players[self.current_player_index]
+        explosives = current.get_module("ExplosivesLab")
+        radius = 1  # default
+        if explosives is not None:
+            radius += explosives.debris_radius
+        debris_region = {(cx + dx, cy + dy) for dx in range(-radius, radius + 1) for dy in range(-radius, radius + 1)
+                         if abs(dx) + abs(dy) <= radius}
         forbidden = set()
-        for d in debris_region:
-            x, y = d
+        for (x, y) in debris_region:
             forbidden.update({(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)})
         for (x, y) in forbidden:
             if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
@@ -309,7 +429,14 @@ class Game:
         return True, debris_region
 
     def get_debris_targets(self, player):
-        reachable = self.get_reachable_cells((player.x, player.y), player.robot_range + 3)
+        launch_bay = player.get_module("LaunchBay")
+        if launch_bay is None:
+            return set()
+        explosives = player.get_module("ExplosivesLab")
+        if explosives is not None:
+            reachable = self.get_reachable_cells((player.x, player.y), launch_bay.robot_range + explosives.extra_range)
+        else:
+            reachable = self.get_reachable_cells((player.x, player.y), launch_bay.robot_range + 3)
         targets = set()
         for cell in reachable:
             if any(a for a in self.asteroids if (a.x, a.y) == cell):
@@ -320,9 +447,17 @@ class Game:
         return targets
 
     def manual_mine(self, player, asteroid):
+        drill = player.get_module("Drill")
+        if drill is None:
+            return "No Drill available. Cannot mine."
         if asteroid.is_exhausted():
             return f"Asteroid {asteroid.id} is exhausted."
-        capacity = player.mining_capacity
+        capacity = drill.mining_capacity
+        # Check for IcePenetrator effect if mining an ice asteroid.
+        if asteroid.asteroid_type.lower() == "ice":
+            ip = player.get_module("IcePenetrator")
+            if ip is not None:
+                capacity *= ip.multiplier
         if asteroid.resource >= capacity:
             extraction = capacity
             asteroid.resource -= extraction
@@ -337,6 +472,7 @@ class Game:
             player.total_mined += extraction
             asteroid.resource = 0
             return f"{player.symbol} manually mines {extraction} from A{asteroid.id} (all) and receives ${gain:.1f}."
+
 
     def robot_mining(self, log_func):
         for a in self.asteroids:
@@ -359,9 +495,15 @@ class Game:
             return ("Not enough money to plant robot remotely.", False)
         if target.robot is not None:
             return ("A robot already exists on this asteroid.", False)
+        launch_bay = player.get_module("LaunchBay")
+        if launch_bay is None:
+            return ("No LaunchBay available. Cannot plant robot remotely.", False)
         player.money -= 100
-        target.robot = Robot(player, player.robot_capacity)
-        return (f"{player.symbol} plants a robot on A{target.id} with capacity {player.robot_capacity}.", False)
+        factory = player.get_module("Factory")
+        if factory is None:
+            return ("No Factory available. Cannot determine robot capacity.", False)
+        target.robot = Robot(player, factory.robot_capacity)
+        return (f"{player.symbol} plants a robot on A{target.id} with capacity {factory.robot_capacity}.", False)
 
     def hijack_robot(self, player):
         asteroid = next((a for a in self.asteroids if a.x == player.x and a.y == player.y and not a.is_exhausted()), None)
@@ -371,20 +513,27 @@ class Game:
             return ("No robot on this asteroid to hijack.", False)
         if asteroid.robot.owner == player:
             return ("You already own the robot here.", False)
+        factory = player.get_module("Factory")
+        if factory is None:
+            return ("No Factory available. Cannot hijack robot.", False)
         asteroid.robot.owner = player
-        asteroid.robot.capacity = player.robot_capacity
+        asteroid.robot.capacity = factory.robot_capacity
         return (f"{player.symbol} hijacks the robot on A{asteroid.id} and now controls it.", True)
 
     def upgrade_all_robots(self, player):
+        launch_bay = player.get_module("LaunchBay")
+        factory = player.get_module("Factory")
+        if launch_bay is None or factory is None:
+            return ["Required modules missing to upgrade robots."]
         upgraded_any = False
         messages = []
         for a in self.asteroids:
             if a.robot and a.robot.owner == player:
-                if manhattan_distance(player.x, player.y, a.x, a.y) <= player.robot_range:
-                    if a.robot.capacity < player.robot_capacity:
+                if manhattan_distance(player.x, player.y, a.x, a.y) <= launch_bay.robot_range:
+                    if a.robot.capacity < factory.robot_capacity:
                         old_cap = a.robot.capacity
-                        a.robot.capacity = player.robot_capacity
-                        messages.append(f"{player.symbol} upgrades robot on A{a.id} from capacity {old_cap} to {player.robot_capacity}.")
+                        a.robot.capacity = factory.robot_capacity
+                        messages.append(f"{player.symbol} upgrades robot on A{a.id} from capacity {old_cap} to {factory.robot_capacity}.")
                         upgraded_any = True
         if upgraded_any:
             messages.append("All eligible robots have been upgraded.")
@@ -394,55 +543,50 @@ class Game:
 
     def upgrade_player(self, player, upgrade_type, log_func):
         if upgrade_type == "mining":
-            if player.money >= player.mining_upgrade_cost:
-                cost = player.mining_upgrade_cost
-                player.money -= cost
-                player.mining_capacity += self.settings.mining_upgrade_amount
+            drill = player.get_module("Drill")
+            if drill is None:
+                log_func("No Drill available to upgrade.")
+                return
+            success, message = drill.upgrade(player)
+            if success:
                 player.upgrades_purchased += 1
-                player.mining_upgrade_cost += self.settings.upgrade_mining_cost_increase
-                log_func(f"{player.symbol} mining capacity upgraded to {player.mining_capacity}. Next upgrade will cost ${player.mining_upgrade_cost}.")
-            else:
-                log_func(f"{player.symbol} lacks money for mining upgrade.")
+            log_func(message)
         elif upgrade_type == "discovery":
-            if player.money >= player.discovery_upgrade_cost:
-                cost = player.discovery_upgrade_cost
-                player.money -= cost
-                player.discovery_range += self.settings.discovery_upgrade_amount
+            telescope = player.get_module("Telescope")
+            if telescope is None:
+                log_func("No Telescope available to upgrade.")
+                return
+            success, message = telescope.upgrade(player)
+            if success:
                 player.upgrades_purchased += 1
-                player.discovery_upgrade_cost += self.settings.upgrade_discovery_cost_increase
-                log_func(f"{player.symbol} discovery range upgraded to {player.discovery_range}. Next upgrade will cost ${player.discovery_upgrade_cost}.")
-            else:
-                log_func(f"{player.symbol} lacks money for discovery upgrade.")
+            log_func(message)
         elif upgrade_type == "movement":
-            if player.money >= player.movement_upgrade_cost:
-                cost = player.movement_upgrade_cost
-                player.money -= cost
-                player.movement_range += self.settings.movement_upgrade_amount
+            reactor = player.get_module("Reactor")
+            if reactor is None:
+                log_func("No Reactor available to upgrade.")
+                return
+            success, message = reactor.upgrade(player)
+            if success:
                 player.upgrades_purchased += 1
-                player.movement_upgrade_cost += self.settings.upgrade_movement_cost_increase
-                log_func(f"{player.symbol} movement range upgraded to {player.movement_range}. Next upgrade will cost ${player.movement_upgrade_cost}.")
-            else:
-                log_func(f"{player.symbol} lacks money for movement upgrade.")
+            log_func(message)
         elif upgrade_type == "robot_range":
-            if player.money >= player.robot_range_upgrade_cost:
-                cost = player.robot_range_upgrade_cost
-                player.money -= cost
-                player.robot_range += self.settings.robot_range_upgrade_amount
+            launch_bay = player.get_module("LaunchBay")
+            if launch_bay is None:
+                log_func("No LaunchBay available to upgrade.")
+                return
+            success, message = launch_bay.upgrade(player)
+            if success:
                 player.upgrades_purchased += 1
-                player.robot_range_upgrade_cost += self.settings.upgrade_robot_range_cost_increase
-                log_func(f"{player.symbol} robot range upgraded to {player.robot_range}. Next upgrade will cost ${player.robot_range_upgrade_cost}.")
-            else:
-                log_func(f"{player.symbol} lacks money for robot range upgrade.")
+            log_func(message)
         elif upgrade_type == "robot_capacity":
-            if player.money >= player.robot_capacity_upgrade_cost:
-                cost = player.robot_capacity_upgrade_cost
-                player.money -= cost
-                player.robot_capacity += self.settings.robot_capacity_upgrade_amount
+            factory = player.get_module("Factory")
+            if factory is None:
+                log_func("No Factory available to upgrade.")
+                return
+            success, message = factory.upgrade(player)
+            if success:
                 player.upgrades_purchased += 1
-                player.robot_capacity_upgrade_cost += self.settings.upgrade_robot_capacity_cost_increase
-                log_func(f"{player.symbol} robot capacity upgraded to {player.robot_capacity}. Next upgrade will cost ${player.robot_capacity_upgrade_cost}.")
-            else:
-                log_func(f"{player.symbol} lacks money for robot capacity upgrade.")
+            log_func(message)
 
     def is_game_over(self):
         return all(a.is_exhausted() for a in self.asteroids)
