@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from gui import GameGUI
-from game import Game
+from gameplay import Game
 from settings import GameSettings
 from constants import *
 

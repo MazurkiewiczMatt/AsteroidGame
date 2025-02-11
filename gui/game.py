@@ -1,11 +1,9 @@
 # game_gui.py
 
 import tkinter as tk
-from collections import deque
 from PIL import Image, ImageTk
-import random
 
-from game import Game
+from gameplay import Game
 from .panels import UpgradeGUI, LeaderboardGUI, AsteroidGraphGUI
 from constants import *  # Must include color constants, FONT_FAMILY, manhattan_distance, etc.
 
