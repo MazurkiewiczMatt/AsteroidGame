@@ -31,5 +31,31 @@ def manhattan_distance(x1, y1, x2, y2):
 
 
 
+# ----------------------------------------------------------------------
+# UI Constants and Standardized Fonts
+# ----------------------------------------------------------------------
+UI_PADDING_SMALL = 5
+UI_PADDING_MEDIUM = 10
+UI_PADDING_GRID_CELL = 1
 
 FONT_FAMILY = "Arial"
+FONT_TIMER = (FONT_FAMILY, 30, "bold")
+FONT_MONEY = (FONT_FAMILY, 24, "bold")
+FONT_PLAYER_INFO = (FONT_FAMILY, 10, "bold")
+FONT_TILE_INFO = (FONT_FAMILY, 10)
+FONT_HEADER = (FONT_FAMILY, 14, "bold")
+FONT_NORMAL = (FONT_FAMILY, 10)
+
+GRID_CELL_WIDTH = 4
+GRID_CELL_HEIGHT = 2
+TEXT_WIDGET_WIDTH = 40
+TEXT_WIDGET_HEIGHT = 15
+INFO_LABEL_WIDTH = 40
+INFO_LABEL_HEIGHT = 6
+
+TIMER_DELAY_MS = 1000
+
+
+
+FONT_FAMILY = "Arial"
+

@@ -1,7 +1,9 @@
 import tkinter as tk
 from constants import *
+
 # Make sure to import your module classes:
 from modules import Drill, Reactor, Telescope, Factory, LaunchBay, IcePenetrator, FusionReactor, ExplosivesLab, WarpDrive
+from .utils import get_module_image_pil
 
 # Standardized fonts:
 FONT_SMALL = (FONT_FAMILY, 10)
@@ -209,29 +211,7 @@ class UpgradeGUI(tk.Toplevel):
         the specific filenames (e.g. "Ice_penetrator.png"). For the others, we follow the
         existing naming convention.
         """
-        mod_name = module.name
-        # Special handling for new modules:
-        if mod_name.lower() in ["icepenetrator", "nerva", "explosiveslab", "warpdrive"]:
-            mapping = {
-                "icepenetrator": "Ice_penetrator",
-                "nerva": "NERVA",
-                "explosiveslab": "Explosives_lab",
-                "warpdrive": "Warp_drive",
-            }
-            if module.level == 1:
-                filename = mapping[mod_name.lower()] + ".png"
-            else:
-                filename = mapping[mod_name.lower()] + "_upgrade.png"
-        else:
-            if mod_name.lower() == "launchbay":
-                filename = f"Launch_Bay{module.level}.png"
-            else:
-                filename = f"{mod_name}{module.level}.png"
-        # Try to load the image; fall back to "Blank.png" if needed.
-        try:
-            img = tk.PhotoImage(file=f"gui/modules/{filename}")
-        except Exception:
-            img = tk.PhotoImage(file="gui/modules/Blank.png")
+        img, filename = get_module_image_pil(module)
         self.image_cache[filename] = img
         return img
 

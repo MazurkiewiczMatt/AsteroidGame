@@ -3,13 +3,11 @@
 import random
 from collections import deque
 from settings import GameSettings
-from constants import *
+from constants import *  # Must include manhattan_distance, and color constants
 
 from .player import Player
 from .asteroid import Asteroid, ASTEROID_TYPES
 from .robot import Robot
-
-
 
 
 class Game:
@@ -64,33 +62,32 @@ class Game:
                         self.discovered_tiles.add((x, y))
 
     def get_reachable_cells(self, start, player):
-
-        if not(type(player) == int):
-
+        """
+        Returns a set of reachable (x,y) cells.
+        The parameter 'player' may be a player object (from which movement range, modules, etc. are used)
+        or an int (for a fixed range).
+        """
+        if not isinstance(player, int):
             warp = player.get_module("WarpDrive")
             allowed_warp = set()
-            if warp is not None and not(warp.used_this_turn):
-                # Allowed moves: any cell that is discovered, not debris, and without an asteroid.
+            if warp is not None and not warp.used_this_turn:
                 allowed_warp = {(x, y) for x in range(self.grid_width) for y in range(self.grid_height)
-                        if (x, y) in self.discovered_tiles
-                        and (x, y) not in self.debris
-                        and not any(a for a in self.asteroids if a.x == x and a.y == y)}
+                                if (x, y) in self.discovered_tiles
+                                and (x, y) not in self.debris
+                                and not any(a for a in self.asteroids if a.x == x and a.y == y)}
             reactor = player.get_module("Reactor")
-
             if reactor is None and warp is None:
                 return False, "No Reactor available nor warp. Cannot move."
-                # Check if player has a FusionReactor to modify movement range.
             fusion = player.get_module("FusionReactor")
             if reactor is not None:
                 base_range = reactor.movement_range
-            else: 
+            else:
                 base_range = 0
             if fusion is not None:
                 base_range = int(base_range * fusion.movement_multiplier)
         else:
             base_range = player
-        
-        
+
         reachable = {}
         queue = deque()
         queue.append((start, 0))
@@ -109,10 +106,8 @@ class Game:
                     if (nx, ny) not in reachable or reachable[(nx, ny)] > dist + 1:
                         reachable[(nx, ny)] = dist + 1
                         queue.append(((nx, ny), dist + 1))
-
-        if not(type(player) == int): 
+        if not isinstance(player, int):
             reachable = set(reachable.keys()) | set(allowed_warp)
-
         return reachable
 
     def find_path(self, start, end, allowed_moves):
@@ -139,19 +134,16 @@ class Game:
         return path
 
     def move_player(self, player, dest):
-        # Check if the player has a WarpDrive.
         warp = player.get_module("WarpDrive")
-        allowed_warp = {}
-        if warp is not None and not(warp.used_this_turn):
-            # Allowed moves: any cell that is discovered, not debris, and without an asteroid.
+        allowed_warp = set()
+        if warp is not None and not warp.used_this_turn:
             allowed_warp = {(x, y) for x in range(self.grid_width) for y in range(self.grid_height)
-                       if (x, y) in self.discovered_tiles
-                       and (x, y) not in self.debris
-                       and not any(a for a in self.asteroids if a.x == x and a.y == y)}
+                            if (x, y) in self.discovered_tiles
+                            and (x, y) not in self.debris
+                            and not any(a for a in self.asteroids if a.x == x and a.y == y)}
         reactor = player.get_module("Reactor")
         if reactor is None and warp is None:
             return False, "No Reactor available. Cannot move."
-            # Check if player has a FusionReactor to modify movement range.
         fusion = player.get_module("FusionReactor")
         base_range = reactor.movement_range
         if fusion is not None:
@@ -162,7 +154,6 @@ class Game:
         path = self.find_path((player.x, player.y), dest, allowed)
         if not path and warp is None:
             return False, "No valid path found."
-        # If not using warp drive, update discovered tiles based on Telescope.
         telescope = player.get_module("Telescope")
         if telescope is not None:
             for (px, py) in path:
@@ -182,7 +173,6 @@ class Game:
                 chance = 1
             if random.random() < chance:
                 event = asteroid.discovery(player)
-        # If using WarpDrive level 2, movement is instant (do not end turn).
         if warp is not None and warp.level == 2:
             message += " (Instant Warp: turn not consumed)"
         return True, (message, event, path, asteroid)
@@ -200,8 +190,6 @@ class Game:
 
     def can_deploy_debris(self, cell):
         cx, cy = cell
-        # Check if player has an ExplosivesLab to modify debris radius.
-        # For simplicity, we assume that the current player’s ExplosivesLab (if any) affects debris.
         current = self.players[self.current_player_index]
         explosives = current.get_module("ExplosivesLab")
         radius = 1  # default
@@ -237,6 +225,24 @@ class Game:
                 targets.add(cell)
         return targets
 
+    def deploy_debris(self, player, cell):
+        """
+        Checks if debris may be deployed at cell, subtracts money, and adds debris.
+        Returns a tuple (success:bool, message:str).
+        """
+        valid, region_or_message = self.can_deploy_debris(cell)
+        if not valid:
+            return False, "Selected tile fails debris deployment validation."
+        if player.money < 200:
+            return False, "Not enough money for debris torpedo."
+        player.money -= 200
+        region = region_or_message
+        for tile in region:
+            if any(a for a in self.asteroids if a.x == tile[0] and a.y == tile[1]):
+                continue
+            self.debris.add(tile)
+        return True, f"{player.symbol} deploys debris torpedo at {cell}. Debris covers {region} (asteroid tiles skipped)."
+
     def manual_mine(self, player, asteroid):
         drill = player.get_module("Drill")
         if drill is None:
@@ -244,7 +250,6 @@ class Game:
         if asteroid.is_exhausted():
             return f"Asteroid {asteroid.id} is exhausted."
         capacity = drill.mining_capacity
-        # Check for IcePenetrator effect if mining an ice asteroid.
         if asteroid.asteroid_type.lower() == "ice":
             ip = player.get_module("IcePenetrator")
             if ip is not None:
@@ -263,7 +268,6 @@ class Game:
             player.total_mined += extraction
             asteroid.resource = 0
             return f"{player.symbol} manually mines {extraction} from A{asteroid.id} (all) and receives ${gain:.1f}."
-
 
     def robot_mining(self, log_func):
         for a in self.asteroids:
@@ -386,11 +390,50 @@ class Game:
         return self.players[self.current_player_index]
 
     def next_turn(self):
-        # resetting modules
+        # Reset modules’ state for a new turn.
         for player in self.players:
             for module in player.modules:
                 module.next_turn()
-        # updating active player index
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         if self.current_player_index == 0:
             self.turn += 1
+
+    def get_allowed_moves(self, player):
+        """
+        Returns a tuple (allowed_moves, error). If no Reactor or WarpDrive exists, an error message is returned.
+        """
+        warp = player.get_module("WarpDrive")
+        reactor = player.get_module("Reactor")
+        if reactor is None and warp is None:
+            return set(), "No Reactor available and no Warp drive. Cannot move."
+        allowed = self.get_reachable_cells((player.x, player.y), player)
+        return set(allowed), None
+
+    def get_base_tile_properties(self, x, y, current_player):
+        """
+        Returns a dictionary with keys 'text', 'bg', and 'fg' for a tile at (x,y) based solely on game state.
+        UI-specific modifications (such as selection or highlighting) should be applied in the UI.
+        """
+        if (x, y) in self.debris:
+            return {"text": "D", "bg": DEBRIS_BG, "fg": "white"}
+        if (x, y) not in self.discovered_tiles:
+            return {"text": "??", "bg": UNDISCOVERED_BG, "fg": DARK_FG}
+        players_here = [p for p in self.players if (p.x, p.y) == (x, y)]
+        asteroid_here = next((a for a in self.asteroids if (a.x, a.y) == (x, y)), None)
+        if players_here:
+            if len(players_here) == 1:
+                text = players_here[0].symbol
+                fg = players_here[0].color
+            else:
+                text = "/".join(p.symbol for p in players_here)
+                fg = "white"
+            bg = ACTIVE_PLAYER_TILE_COLOR if (x, y) == (current_player.x, current_player.y) else EMPTY_TILE_BG
+        elif asteroid_here:
+            text = f"A{asteroid_here.id}"
+            fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
+            bg = asteroid_here.color if not asteroid_here.is_exhausted() else ASTEROID_BG
+        else:
+            text = "."
+            fg = DARK_FG
+            bg = EMPTY_TILE_BG
+        return {"text": text, "bg": bg, "fg": fg}
