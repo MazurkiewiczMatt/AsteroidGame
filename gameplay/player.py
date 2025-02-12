@@ -1,7 +1,7 @@
 from settings import GameSettings
 from constants import *
 
-from modules import Drill, Reactor, Telescope, Factory, LaunchBay
+from .modules import Drill, Reactor, Telescope, Factory, LaunchBay
 
 class Player:
     next_id = 1

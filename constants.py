@@ -59,3 +59,7 @@ TIMER_DELAY_MS = 1000
 
 FONT_FAMILY = "Arial"
 
+# Standardized fonts for PANELS
+FONT_SMALL = (FONT_FAMILY, 10)
+FONT_MEDIUM = (FONT_FAMILY, 12, "bold")
+FONT_HEADER = (FONT_FAMILY, 14, "bold")
