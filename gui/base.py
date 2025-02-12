@@ -36,6 +36,8 @@ class GameGUIBase(tk.Tk):
         self.timer_paused = False
         self.turn_timer_remaining = self.game.settings.turn_timer_duration
 
+        self.lens = None
+
     # -------------------------
     # Abstract / “hook” methods
     # -------------------------

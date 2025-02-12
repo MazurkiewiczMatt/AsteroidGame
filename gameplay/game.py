@@ -2,6 +2,10 @@
 
 import random
 from collections import deque
+
+from fontTools.misc.psOperators import ps_string
+from fontTools.tfmLib import PASSTHROUGH
+
 from settings import GameSettings
 from constants import *  # Must include manhattan_distance, and color constants
 
@@ -411,7 +415,7 @@ class Game:
         allowed = self.get_reachable_cells((player.x, player.y), player)
         return set(allowed), None
 
-    def get_base_tile_properties(self, x, y, current_player):
+    def get_base_tile_properties(self, x, y, current_player, lens=None):
         """
         Returns a dictionary with keys 'text', 'bg', and 'fg' for a tile at (x,y) based solely on game state.
         UI-specific modifications (such as selection or highlighting) should be applied in the UI.
@@ -420,20 +424,68 @@ class Game:
             return {"text": "D", "bg": DEBRIS_BG, "fg": "white"}
         if (x, y) not in self.discovered_tiles:
             return {"text": "??", "bg": UNDISCOVERED_BG, "fg": DARK_FG}
+
+        # Find any players or an asteroid at tile (x, y)
         players_here = [p for p in self.players if (p.x, p.y) == (x, y)]
         asteroid_here = next((a for a in self.asteroids if (a.x, a.y) == (x, y)), None)
+
         if players_here:
             if len(players_here) == 1:
                 text = players_here[0].symbol
                 fg = players_here[0].color
             else:
+                # Join symbols – then (if necessary) truncate to three characters.
                 text = "/".join(p.symbol for p in players_here)
                 fg = "white"
+            text = text[:3]  # ensure we never show more than 3 characters
             bg = ACTIVE_PLAYER_TILE_COLOR if (x, y) == (current_player.x, current_player.y) else EMPTY_TILE_BG
+
         elif asteroid_here:
-            text = f"A{asteroid_here.id}"
-            fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
-            bg = asteroid_here.color if not asteroid_here.is_exhausted() else ASTEROID_BG
+            # For the "resource" and "value" lenses we want to color the background using a colormap.
+            # Here we compute the min/max from all active (i.e. not exhausted) asteroids.
+            if lens in ("resource", "value"):
+                active_asteroids = [a for a in self.asteroids if not a.is_exhausted()]
+                if active_asteroids:
+                    min_resource = min(a.resource for a in active_asteroids)
+                    max_resource = max(a.resource for a in active_asteroids)
+                    min_value = min(a.resource * a.value for a in active_asteroids)
+                    max_value = max(a.resource * a.value for a in active_asteroids)
+                else:
+                    # Fall back to defaults if no active asteroids are found
+                    min_resource = max_resource = 0
+                    min_value = max_value = 0
+
+            if lens == "resource":
+                num = asteroid_here.resource
+                text = f"${num:.1f}"
+                fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
+                if not asteroid_here.is_exhausted():
+                    bg = value_to_bg(num, min_resource, max_resource)
+                else:
+                    bg = ASTEROID_BG
+
+            elif lens == "value":
+                num = asteroid_here.resource * asteroid_here.value
+                text = f"${num:.1f}"
+                fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
+                if not asteroid_here.is_exhausted():
+                    bg = value_to_bg(num, min_value, max_value)
+                else:
+                    bg = ASTEROID_BG
+
+            elif lens == "robot":
+                if asteroid_here.robot:
+                    num = asteroid_here.robot.capacity * asteroid_here.value
+                    text = f"${num:.1f}"
+                    bg = asteroid_here.robot.owner.color
+                else:
+                    text = f"A{asteroid_here.id}"
+                    bg = ASTEROID_BG
+                fg = "white"
+            else:
+                text = f"A{asteroid_here.id}"
+                fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
+                bg = asteroid_here.color if not asteroid_here.is_exhausted() else ASTEROID_BG
         else:
             text = "."
             fg = DARK_FG

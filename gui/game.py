@@ -42,6 +42,24 @@ class GameGUI(GameGUIBase):
         tk.Button(ui_panel_frame, text="Asteroid Stats",
                   command=lambda: [self.cancel_pending_actions(), self.open_asteroid_graph_window()],
                   bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_NORMAL).pack(side="left", padx=UI_PADDING_SMALL)
+
+        def change_lens(name):
+            self.lens = name
+            self.update_display()
+
+        tk.Button(ui_panel_frame, text="Default view",
+                  command=lambda: change_lens(None),
+                  bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_NORMAL).pack(side="left", padx=UI_PADDING_SMALL)
+        tk.Button(ui_panel_frame, text="Resource view",
+                  command=lambda: change_lens("resource"),
+                  bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_NORMAL).pack(side="left", padx=UI_PADDING_SMALL)
+        tk.Button(ui_panel_frame, text="Value view",
+                  command=lambda: change_lens("value"),
+                  bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_NORMAL).pack(side="left", padx=UI_PADDING_SMALL)
+        tk.Button(ui_panel_frame, text="Robot view",
+                  command=lambda: change_lens("robot"),
+                  bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_NORMAL).pack(side="left", padx=UI_PADDING_SMALL)
+
         self.pause_timer_button = tk.Button(ui_panel_frame, text="Pause Timer",
                                             command=self.toggle_timer,
                                             bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_NORMAL)
@@ -168,7 +186,7 @@ class GameGUI(GameGUIBase):
         # Update each grid cell (tile)
         for y in range(self.game.grid_height):
             for x in range(self.game.grid_width):
-                base_props = self.game.get_base_tile_properties(x, y, active)
+                base_props = self.game.get_base_tile_properties(x, y, active, lens=self.lens)
                 text = base_props["text"]
                 bg_color = base_props["bg"]
                 fg_color = base_props["fg"]

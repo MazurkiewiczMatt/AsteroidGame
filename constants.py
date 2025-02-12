@@ -63,3 +63,21 @@ FONT_FAMILY = "Arial"
 FONT_SMALL = (FONT_FAMILY, 10)
 FONT_MEDIUM = (FONT_FAMILY, 12, "bold")
 FONT_HEADER = (FONT_FAMILY, 14, "bold")
+
+
+
+# for lenses
+
+
+def value_to_bg(val, min_val, max_val, dark=50, bright=255):
+    """
+    Returns a hex color string (a grayscale color) based on the value.
+    When val==min_val the brightness is near `dark` (darker color) and when
+    val==max_val the brightness is near `bright` (a lighter color).
+    """
+    if max_val == min_val:
+        brightness = dark
+    else:
+        brightness = int(dark + (bright - dark) * ((val - min_val) / (max_val - min_val)))
+    # Return a hex color string (e.g. "#404040")
+    return f"#{brightness:02x}{brightness:02x}{brightness:02x}"
