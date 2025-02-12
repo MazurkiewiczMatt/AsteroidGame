@@ -1,5 +1,5 @@
 # game.py
-
+import math
 import random
 from collections import deque
 
@@ -446,10 +446,10 @@ class Game:
             if lens in ("resource", "value"):
                 active_asteroids = [a for a in self.asteroids if not a.is_exhausted()]
                 if active_asteroids:
-                    min_resource = min(a.resource for a in active_asteroids)
-                    max_resource = max(a.resource for a in active_asteroids)
-                    min_value = min(a.resource * a.value for a in active_asteroids)
-                    max_value = max(a.resource * a.value for a in active_asteroids)
+                    min_resource = math.log(min(a.resource if (a.x, a.y) in self.discovered_tiles else 100000 for a in active_asteroids))
+                    max_resource = math.log(max(a.resource if (a.x, a.y) in self.discovered_tiles else 0 for a in active_asteroids))
+                    min_value = math.log(min(a.resource * a.value if (a.x, a.y) in self.discovered_tiles else 100000 for a in active_asteroids))
+                    max_value = math.log(max(a.resource * a.value if (a.x, a.y) in self.discovered_tiles else 0 for a in active_asteroids))
                 else:
                     # Fall back to defaults if no active asteroids are found
                     min_resource = max_resource = 0
@@ -461,7 +461,7 @@ class Game:
                 text = f"{short_num(num)}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 if not asteroid_here.is_exhausted():
-                    bg = value_to_bg(num, min_resource, max_resource, asteroid_here.color)
+                    bg = value_to_bg(math.log(num), min_resource, max_resource, asteroid_here.color)
                 else:
                     bg = ASTEROID_BG
 
@@ -470,7 +470,7 @@ class Game:
                 text = f"${short_num(num)}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 if not asteroid_here.is_exhausted():
-                    bg = value_to_bg(num, min_value, max_value, asteroid_here.color)
+                    bg = value_to_bg(math.log(num), min_value, max_value, asteroid_here.color)
                 else:
                     bg = ASTEROID_BG
 
