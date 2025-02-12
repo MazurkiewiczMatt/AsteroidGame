@@ -39,6 +39,8 @@ class Player:
         self.x = x
         self.y = y
 
+        self.money_earned_by_robots = 0
+
     def get_module(self, module_name):
         """Returns the first module in self.modules whose name matches module_name (case-insensitive)."""
         for mod in self.modules:
@@ -51,3 +53,7 @@ class Player:
 
     def __str__(self):
         return f"{self.symbol}"
+
+    def next_turn(self):
+        for module in self.modules:
+            module.next_turn()

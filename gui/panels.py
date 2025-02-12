@@ -1,9 +1,7 @@
 import tkinter as tk
 from constants import *
-
 # Make sure to import your module classes:
 from modules import Drill, Reactor, Telescope, Factory, LaunchBay, IcePenetrator, FusionReactor, ExplosivesLab, WarpDrive
-from .utils import get_module_image_pil
 
 # Standardized fonts:
 FONT_SMALL = (FONT_FAMILY, 10)
@@ -211,7 +209,29 @@ class UpgradeGUI(tk.Toplevel):
         the specific filenames (e.g. "Ice_penetrator.png"). For the others, we follow the
         existing naming convention.
         """
-        img, filename = get_module_image_pil(module)
+        mod_name = module.name
+        # Special handling for new modules:
+        if mod_name.lower() in ["icepenetrator", "nerva", "explosiveslab", "warpdrive"]:
+            mapping = {
+                "icepenetrator": "Ice_penetrator",
+                "nerva": "NERVA",
+                "explosiveslab": "Explosives_lab",
+                "warpdrive": "Warp_drive",
+            }
+            if module.level == 1:
+                filename = mapping[mod_name.lower()] + ".png"
+            else:
+                filename = mapping[mod_name.lower()] + "_upgrade.png"
+        else:
+            if mod_name.lower() == "launchbay":
+                filename = f"Launch_Bay{module.level}.png"
+            else:
+                filename = f"{mod_name}{module.level}.png"
+        # Try to load the image; fall back to "Blank.png" if needed.
+        try:
+            img = tk.PhotoImage(file=f"gui/modules/{filename}")
+        except Exception:
+            img = tk.PhotoImage(file="gui/modules/Blank.png")
         self.image_cache[filename] = img
         return img
 
@@ -316,9 +336,11 @@ class AsteroidGraphGUI(tk.Toplevel):
             max_bar_value = max(a.resource * a.value for a in discovered) if discovered else 1
         for a in discovered:
             if not a.is_exhausted():
-                _, fill_color, _ = self.master.get_tile_properties(a.x, a.y)
+                _, fill_color, _ = self.master.game.get_base_tile_properties(a.x, a.y, self.master.game.get_current_player())
                 if fill_color not in [SELECTED_TILE_COLOR, ACTIVE_PLAYER_TILE_COLOR]:
                     fill_color = ASTEROID_BG
+                if self.master.selected_tile == (a.x,a.y):
+                    fill_color = SELECTED_TILE_COLOR
                 row_tag = f"asteroid_{a.id}"
                 self.canvas.create_rectangle(5, y, self.canvas_width - 5, y + self.row_height, fill=fill_color,
                                              outline="", tags=row_tag)
@@ -352,7 +374,8 @@ class AsteroidGraphGUI(tk.Toplevel):
                 y += self.row_height
 
     def on_row_click(self, x, y):
-        self.master.on_asteroid_selected(x, y)
+        self.master.selected_tile = (x, y)
+        self.master.update_display()
 
     def on_close(self):
         self.destroy()
@@ -444,88 +467,3 @@ class LeaderboardGUI(tk.Toplevel):
         self.destroy()
         self.master.leaderboard_window = None
 
-
-class AsteroidGraphGUI(tk.Toplevel):
-    def __init__(self, parent, game):
-        super().__init__(parent)
-        self.title("Asteroid Stats")
-        self.configure(bg=DARK_BG)
-        self.game = game
-        self.canvas_width = 600
-        self.row_height = 35
-        self.header_height = 30
-        self.show_resource_bar = True
-        button_frame = tk.Frame(self, bg=DARK_BG)
-        button_frame.pack(pady=5)
-        self.toggle_button = tk.Button(button_frame, text="Show Total Value Bar", command=self.toggle_bar_chart,
-                                       bg=BUTTON_BG, fg=BUTTON_FG, font=FONT_SMALL)
-        self.toggle_button.pack()
-        self.canvas = tk.Canvas(self, width=self.canvas_width, height=300, bg=DARK_BG, highlightthickness=0)
-        self.canvas.pack(padx=10, pady=10, fill="both", expand=True)
-        self.update_content()
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
-
-    def toggle_bar_chart(self):
-        self.show_resource_bar = not self.show_resource_bar
-        self.toggle_button.config(text="Show Total Value" if self.show_resource_bar else "Show Resource")
-        self.update_content()
-
-    def update_content(self):
-        discovered = [a for a in self.game.asteroids if (a.x, a.y) in self.game.discovered_tiles]
-        total_height = self.header_height + self.row_height * len(discovered) + 20
-        self.canvas.config(height=total_height)
-        self.canvas.delete("all")
-        headers = ["Asteroid", "Loc", "Res", "Price", "Tot. Val", "Players", "Robot (Cap)",
-                   "Resource" if self.show_resource_bar else "Value"]
-        col_positions = [10, 70, 120, 170, 230, 290, 380, 480]
-        for i, header in enumerate(headers):
-            self.canvas.create_text(col_positions[i], 15, anchor="w", text=header, fill=DARK_FG,
-                                    font=FONT_SMALL)
-        y = self.header_height
-        if self.show_resource_bar:
-            max_bar_value = max(a.resource for a in discovered) if discovered else 1
-        else:
-            max_bar_value = max(a.resource * a.value for a in discovered) if discovered else 1
-        for a in discovered:
-            if not a.is_exhausted():
-                _, fill_color, _ = self.master.get_tile_properties(a.x, a.y)
-                if fill_color not in [SELECTED_TILE_COLOR, ACTIVE_PLAYER_TILE_COLOR]:
-                    fill_color = ASTEROID_BG
-                row_tag = f"asteroid_{a.id}"
-                self.canvas.create_rectangle(5, y, self.canvas_width - 5, y + self.row_height, fill=fill_color,
-                                             outline="", tags=row_tag)
-                self.canvas.tag_bind(row_tag, "<Button-1>", lambda e, ax=a.x, ay=a.y: self.on_row_click(ax, ay))
-                row_color = a.robot.owner.color if a.robot else DARK_FG
-                self.canvas.create_text(col_positions[0], y + self.row_height / 2, anchor="w",
-                                        text=f"{'(??) ' if not a.visited else ''}A{a.id}", fill=row_color, font=FONT_SMALL, tags=row_tag)
-                self.canvas.create_text(col_positions[1], y + self.row_height / 2, anchor="w",
-                                        text=f"({a.x},{a.y})", fill=row_color, font=FONT_SMALL, tags=row_tag)
-                self.canvas.create_text(col_positions[2], y + self.row_height / 2, anchor="w",
-                                        text=f"{a.resource:.0f}", fill=row_color, font=FONT_SMALL, tags=row_tag)
-                self.canvas.create_text(col_positions[3], y + self.row_height / 2, anchor="w",
-                                        text=f"${a.value:.2f}", fill=row_color, font=FONT_SMALL, tags=row_tag)
-                total_val = a.resource * a.value
-                self.canvas.create_text(col_positions[4], y + self.row_height / 2, anchor="w",
-                                        text=f"${total_val:.2f}", fill=row_color, font=FONT_SMALL, tags=row_tag)
-                players_here = [p for p in self.game.players if p.x == a.x and p.y == a.y]
-                players_text = ", ".join(p.symbol for p in players_here)
-                self.canvas.create_text(col_positions[5], y + self.row_height / 2, anchor="w",
-                                        text=players_text, fill=row_color, font=FONT_SMALL, tags=row_tag)
-                robot_text = f"{a.robot.owner.symbol} (Cap: {a.robot.capacity})" if a.robot else ""
-                self.canvas.create_text(col_positions[6], y + self.row_height / 2, anchor="w",
-                                        text=robot_text, fill=row_color, font=FONT_SMALL, tags=row_tag)
-                bar_x = col_positions[7]
-                bar_y = y + 5
-                max_bar_length = self.canvas_width - bar_x - 20
-                bar_val = a.resource if self.show_resource_bar else total_val
-                bar_length = (bar_val / max_bar_value) * max_bar_length if max_bar_value > 0 else 0
-                self.canvas.create_rectangle(bar_x, bar_y, bar_x + bar_length, bar_y + self.row_height - 10,
-                                             fill=a.color, outline="white", tags=row_tag)
-                y += self.row_height
-
-    def on_row_click(self, x, y):
-        self.master.on_asteroid_selected(x, y)
-
-    def on_close(self):
-        self.destroy()
-        self.master.asteroid_stats_window = None

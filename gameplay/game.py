@@ -213,7 +213,7 @@ class Game:
             return set()
         explosives = player.get_module("ExplosivesLab")
         if explosives is not None:
-            reachable = self.get_reachable_cells((player.x, player.y), launch_bay.robot_range + explosives.extra_range)
+            reachable = self.get_reachable_cells((player.x, player.y), launch_bay.robot_range + 3 + explosives.extra_range)
         else:
             reachable = self.get_reachable_cells((player.x, player.y), launch_bay.robot_range + 3)
         targets = set()
@@ -270,12 +270,15 @@ class Game:
             return f"{player.symbol} manually mines {extraction} from A{asteroid.id} (all) and receives ${gain:.1f}."
 
     def robot_mining(self, log_func):
+        for p in self.players:
+            p.money_earned_by_robots = 0
         for a in self.asteroids:
             if a.robot and not a.is_exhausted():
                 extraction = min(a.robot.capacity, a.resource)
                 gain = extraction * a.value
                 a.resource -= extraction
                 a.robot.owner.money += gain
+                a.robot.owner.money_earned_by_robots += gain
                 a.robot.owner.total_mined += extraction
                 log_func(f"Robot on A{a.id} (owned by {a.robot.owner.symbol}, Cap: {a.robot.capacity}) extracts {extraction} and earns ${gain:.1f}.")
 
@@ -390,10 +393,9 @@ class Game:
         return self.players[self.current_player_index]
 
     def next_turn(self):
-        # Reset modules’ state for a new turn.
         for player in self.players:
-            for module in player.modules:
-                module.next_turn()
+            player.next_turn()
+
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         if self.current_player_index == 0:
             self.turn += 1

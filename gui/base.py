@@ -371,13 +371,14 @@ class GameGUIBase(tk.Tk):
         info = f"{player.symbol}\n"
         info += f"   Drill (Mining Capacity): {drill.mining_capacity if drill else 'None'}\n"
         info += f"   Telescope (Discovery Range): {telescope.discovery_range if telescope else 'None'}\n"
-        info += f"   Reactor (Movement Range): {reactor.movement_range if reactor else 'None'}\n"
+        info += f"   Reactor (Movement Range): {reactor.movement_range if reactor else 'None'}\n\n"
         info += f"   LaunchBay (Robot Range): {launch_bay.robot_range if launch_bay else 'None'}\n"
         info += f"   Factory (Robot Capacity): {factory.robot_capacity if factory else 'None'}\n"
         if factory is not None:
             left = factory.robot_production - factory.robots_produced_this_turn
             total = factory.robot_production
-            info += f"   Robots produced this turn: {left}/{total}"
+            info += f"   Robots produced this turn: {left}/{total}\n"
+        info += f"   Money earned by robots: {int(player.money_earned_by_robots)}\n"
         return info
 
     def format_current_tile_info(self, player):
