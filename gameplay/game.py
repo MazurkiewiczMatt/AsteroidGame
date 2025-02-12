@@ -440,7 +440,7 @@ class Game:
             text = text[:3]  # ensure we never show more than 3 characters
             bg = ACTIVE_PLAYER_TILE_COLOR if (x, y) == (current_player.x, current_player.y) else EMPTY_TILE_BG
 
-        elif asteroid_here:
+        if asteroid_here:
             # For the "resource" and "value" lenses we want to color the background using a colormap.
             # Here we compute the min/max from all active (i.e. not exhausted) asteroids.
             if lens in ("resource", "value"):
@@ -458,7 +458,8 @@ class Game:
             if lens == "resource":
                 num = asteroid_here.resource
                 # Use short_num() to abbreviate the number to (for example) "15k"
-                text = f"{short_num(num)}"
+                if not (players_here):
+                    text = f"{short_num(num)}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 if not asteroid_here.is_exhausted():
                     bg = value_to_bg(math.log(num), min_resource, max_resource, asteroid_here.color)
@@ -467,7 +468,8 @@ class Game:
 
             elif lens == "value":
                 num = asteroid_here.resource * asteroid_here.value
-                text = f"${short_num(num)}"
+                if not (players_here):
+                    text = f"${short_num(num)}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 if not asteroid_here.is_exhausted():
                     bg = value_to_bg(math.log(num), min_value, max_value, asteroid_here.color)
@@ -477,18 +479,25 @@ class Game:
             elif lens == "robot":
                 if asteroid_here.robot:
                     num = asteroid_here.robot.capacity * asteroid_here.value
-                    text = f"${short_num(num)}"
+                    if not (players_here):
+                        text = f"${short_num(num)}"
                     bg = asteroid_here.robot.owner.color
                 else:
-                    text = f"A{asteroid_here.id}"
+                    if not (players_here):
+                        text = f"A{asteroid_here.id}"
                     bg = ASTEROID_BG
                 fg = "black"
             else:
-                text = f"A{asteroid_here.id}"
+                if not(players_here):
+                    text = f"A{asteroid_here.id}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 bg = asteroid_here.color if not asteroid_here.is_exhausted() else ASTEROID_BG
-        else:
+
+        if not(asteroid_here) and not(players_here):
             text = "."
             fg = DARK_FG
             bg = EMPTY_TILE_BG
+
+        bg = ACTIVE_PLAYER_TILE_COLOR if (x, y) == (current_player.x, current_player.y) else bg
+
         return {"text": text, "bg": bg, "fg": fg}

@@ -92,7 +92,7 @@ def short_num(n):
 import colorsys
 
 
-def value_to_bg(val, min_val, max_val, base_color, dark=0, bright=50):
+def value_to_bg(val, min_val, max_val, base_color, dark=0, bright=100):
     """
     Returns a hex color string with the same hue and saturation as `base_color`
     but with brightness (lightness) varying between the provided `dark` and `bright`
