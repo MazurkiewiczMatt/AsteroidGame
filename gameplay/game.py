@@ -457,31 +457,32 @@ class Game:
 
             if lens == "resource":
                 num = asteroid_here.resource
-                text = f"${num:.1f}"
+                # Use short_num() to abbreviate the number to (for example) "15k"
+                text = f"{short_num(num)}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 if not asteroid_here.is_exhausted():
-                    bg = value_to_bg(num, min_resource, max_resource)
+                    bg = value_to_bg(num, min_resource, max_resource, asteroid_here.color)
                 else:
                     bg = ASTEROID_BG
 
             elif lens == "value":
                 num = asteroid_here.resource * asteroid_here.value
-                text = f"${num:.1f}"
+                text = f"${short_num(num)}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
                 if not asteroid_here.is_exhausted():
-                    bg = value_to_bg(num, min_value, max_value)
+                    bg = value_to_bg(num, min_value, max_value, asteroid_here.color)
                 else:
                     bg = ASTEROID_BG
 
             elif lens == "robot":
                 if asteroid_here.robot:
                     num = asteroid_here.robot.capacity * asteroid_here.value
-                    text = f"${num:.1f}"
+                    text = f"${short_num(num)}"
                     bg = asteroid_here.robot.owner.color
                 else:
                     text = f"A{asteroid_here.id}"
                     bg = ASTEROID_BG
-                fg = "white"
+                fg = "black"
             else:
                 text = f"A{asteroid_here.id}"
                 fg = asteroid_here.robot.owner.color if asteroid_here.robot else "white"
